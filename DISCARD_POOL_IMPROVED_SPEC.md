@@ -59,7 +59,23 @@ function getChowOptions(hand: string[], targetTile: string): ChowOption[]
 
 ---
 
-## 改進 2：統一的中央海底設計
+## 改進 2：統一的中央海底設計 + 當下牌特顯
+
+### 當下牌（最新捨出的牌）
+- **位置**：中央最顯眼的位置
+- **尺寸**：80×110px（比其他牌大約 2 倍）
+- **樣式**：
+  - 黃色邊框 + 發光效果
+  - 輕微浮起效果（box-shadow）
+  - 脈衝動畫吸引注意力
+- **位置邏輯**：
+  - 如果當下牌來自自己(東) → 中央下方特大區
+  - 如果當下牌來自對家(西) → 中央上方特大區
+  - 如果來自上/下家 → 先在特大區顯示，0.5s 後移至側邊
+
+---
+
+## 改進 2.1：統一的中央海底設計
 
 ### 舊設計（廢棄）
 ```
@@ -88,13 +104,20 @@ function getChowOptions(hand: string[], targetTile: string): ChowOption[]
 
 ```
                     對家 (西) ↓
-                   [E↓] [2p↓]
+      [E↓]  [2p↓]  [當下牌E↓特大]  [更多↓]
+                   (黃邊+發光)
                    
-上家 (南) ←      中央棋盤         下家 (北) →
-[8m←] [5m←]    [5m↑] [3s→]    [1m→] [8m→]
-
-                    自己 (東) ↑
+上家 ←    舊牌    [當下牌特大區]      舊牌    → 下家
+[8m←]   (小牌)   (80×110px)  (小牌)  [1m→]
+                  黃邊+脈衝+浮起
+                自己 (東) ↑
+                [5m↑] [3s→]
 ```
+
+**當下牌位置邏輯**：
+- 自己打 → 中央下方特大區
+- 對家打 → 中央上方特大區
+- 上/下家打 → 中央特大區顯示 0.5s，然後動畫滑至側邊
 
 ### 座位和排列對應
 
@@ -119,13 +142,73 @@ function getChowOptions(hand: string[], targetTile: string): ChowOption[]
   - **左區（上家）**：`<div class="discard-left">` 由右往左排列
   - **中央**：`<div class="discard-center">`
     - 上方（對家）：`<div class="discard-center-top">`
+      - 當下牌特大區：`<div class="discard-highlight-top">` (如果當下牌來自對家)
+      - 舊牌區：`<div class="discard-tiles-top">`
     - 下方（自己）：`<div class="discard-center-bottom">`
+      - 當下牌特大區：`<div class="discard-highlight-bottom">` (如果當下牌來自自己)
+      - 舊牌區：`<div class="discard-tiles-bottom">`
   - **右區（下家）**：`<div class="discard-right">` 由左往右排列
 
-- **每張牌**：`<div class="discard-tile" data-player="0">`
+- **當下牌**：`<div class="discard-tile current-tile">`
+  - 牌卡（80×110px）
+  - 黃色邊框 + 發光效果
+  - 脈衝動畫
+  - 如果來自上/下家，0.5s 後動畫滑至側邊
+
+- **舊牌**：`<div class="discard-tile historic-tile">`
   - 牌卡（40×60px）
   - 小箭頭（顯示座位方向）
-  - 可選：吃/碰標記
+
+---
+
+## 當下牌的 CSS 樣式
+
+```css
+/* 當下牌特顯 */
+.discard-tile.current-tile {
+  width: 80px;
+  height: 110px;
+  border: 4px solid #FFD700;
+  box-shadow: 0 0 16px #FFD700, 0 8px 16px rgba(0, 0, 0, 0.3);
+  animation: pulse-current 0.6s ease-in-out infinite;
+  transform: scale(1);
+}
+
+@keyframes pulse-current {
+  0%, 100% {
+    box-shadow: 0 0 16px #FFD700, 0 8px 16px rgba(0, 0, 0, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 24px #FFD700, 0 8px 16px rgba(0, 0, 0, 0.3);
+    transform: scale(1.05);
+  }
+}
+
+/* 舊牌 */
+.discard-tile.historic-tile {
+  width: 40px;
+  height: 60px;
+  border: 2px solid #333;
+  opacity: 0.8;
+}
+
+/* 當下牌從側邊移至中央 */
+.discard-tile.current-tile.animate-to-side {
+  animation: slide-to-side 0.5s ease-in-out forwards;
+}
+
+@keyframes slide-to-side {
+  from {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.5) translateX(100px);
+    opacity: 0.8;
+  }
+}
+```
 
 ---
 
@@ -236,17 +319,31 @@ function clearHighlight() {
    - [ ] 3索-4索-5索 吃
    - [ ] 5索-6索-7索 吃
 
-### Case 2：統一海底
-1. 東家(自己)打 5m → 中央下方 [5m↑]
-2. 南家(上家)打 2p → 左邊 [2p←]
-3. 西家(對家)打 E → 中央上方 [E↓]
-4. 北家(下家)打 3s → 右邊 [3s→]
-5. 期望：
+### Case 2：統一海底 + 當下牌特顯
+1. 東家(自己)打 5m
+   - 期望：5m 在中央下方特大區（80×110px），黃邊，脈衝動畫
+
+2. 南家(上家)打 2p
+   - 期望：2p 在中央特大區顯示 0.5s，黃邊+脈衝
+   - 0.5s 後動畫滑至左邊，變成小牌卡（40×60px）
+   - 5m 變為小牌卡，透明度 0.8
+
+3. 西家(對家)打 E
+   - 期望：E 在中央上方特大區（80×110px），黃邊+脈衝
+   - 2p 的滑動動畫完成，顯示在左邊
+
+4. 北家(下家)打 3s
+   - 期望：3s 在中央特大區顯示 0.5s，黃邊+脈衝
+   - 0.5s 後動畫滑至右邊，變成小牌卡
+
+5. 最終佈局：
    ```
-                [E↓]
-       [2p←] | [5m↑] | [3s→]
+                 [E↓特大]
+       [2p←小] | (黃邊+脈衝) | [3s→小]
+       
+       [5m↑小]
+    (透明度0.8)
    ```
-   佈局清晰，箭頭指示座位，顏色對應
 
 ### Case 3：高亮吃/碰
 1. 東家打 5m，玩家可吃或碰

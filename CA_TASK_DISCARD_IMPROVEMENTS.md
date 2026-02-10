@@ -5,7 +5,27 @@
 
 ---
 
-## Phase 1：中央海底設計（10-12 分鐘）
+## Phase 1：中央海底設計 + 當下牌特顯（14-16 分鐘）
+
+### Task 1.0：改 discardPool 數據結構以支持當下牌追蹤
+**文件**：`src/gameState.ts`
+
+改變：
+```typescript
+type DiscardedTile = {
+  tile: string
+  player: number
+  timestamp: number
+  isCurrentTile: boolean  // 新增：是否是當下牌
+  claimedBy?: number
+  claimType?: 'pong' | 'chow' | 'kong'
+}
+```
+
+驗收標準：
+- ✅ 每次有牌捨出時，只有最新的牌 isCurrentTile = true
+- ✅ 其他牌 isCurrentTile = false
+- ✅ 舊牌更新時自動改為 false
 
 ### Task 1.1：改 discardPool 數據結構
 **文件**：`src/gameState.ts`
@@ -38,60 +58,89 @@ discardPool: DiscardedTile[]  // 按時間順序
 - ✅ gameState 初始化時 discardPool = []
 - ✅ 與出牌邏輯兼容
 
-### Task 1.2：新建 DiscardTimeline 組件
+### Task 1.2：新建 DiscardTimeline 組件（含當下牌特顯）
 **文件**：`src/components/DiscardTimeline.tsx`
 
 實現：
 - React 組件，接收 `discardPool` 作為 props
 - 三區佈局：
   - **左區（上家/南家）**：由右往左排列（最新牌在左邊）
-  - **中央**：分上下兩部分
-    - 上：對家（西家）捨牌，由左往右
-    - 下：自己（東家）捨牌，由左往右
+  - **中央**：分上下兩部分，各有特大區
+    - 上：對家（西家）
+      - 當下牌特大區（80×110px，如果當下牌來自對家）
+      - 舊牌區（40×60px，由左往右）
+    - 下：自己（東家）
+      - 當下牌特大區（80×110px，如果當下牌來自自己）
+      - 舊牌區（40×60px，由左往右）
   - **右區（下家/北家）**：由左往右排列（最新牌在右邊）
-- 每張牌：
-  - 40×60px 牌卡
-  - 小箭頭（↑←↓→）指示座位，顏色對應
-  - 可選：吃/碰標記
+- 當下牌邏輯：
+  - 找到 isCurrentTile = true 的牌
+  - 如果來自自己/對家 → 在中央特大區顯示
+  - 如果來自上/下家 → 在特大區顯示 0.5s，然後動畫滑至側邊
+- 每張牌樣式：
+  - 當下牌：80×110px，黃邊，脈衝動畫
+  - 舊牌：40×60px，小箭頭，顏色對應
 
 驗收標準：
-- ✅ 左區牌由右往左（上家牌排在左邊）
-- ✅ 中央分上下，都由左往右（最新在右）
-- ✅ 右區牌由左往右（下家牌排在右邊）
-- ✅ 箭頭顏色正確（東紅/南藍/西綠/北黃）
+- ✅ 當下牌在中央特大區顯示，黃邊+脈衝
+- ✅ 當下牌來自上/下家時，0.5s 後滑動至側邊
+- ✅ 左區牌由右往左，中央分上下，右區由左往右
 - ✅ 超過 13 張時支援水平滾動或折行
+- ✅ 箭頭顏色正確
 
-### Task 1.3：DiscardTimeline 樣式
+### Task 1.3：DiscardTimeline 樣式（含當下牌特顯）
 **文件**：`src/styles/discard-timeline.css`
 
 實現：
 - **主容器**：flexbox，三列佈局（左 | 中 | 右）
   - 左區：`flex-direction: row-reverse`（由右往左）
   - 中央：flexbox，垂直堆疊（上下）
-    - 中上：`flex-direction: row`（由左往右）
-    - 中下：`flex-direction: row`（由左往右）
+    - 中上：分為特大區 + 舊牌區
+      - 特大區：`discard-highlight-top`（80×110px）
+      - 舊牌區：`discard-tiles-top`（40×60px，由左往右）
+    - 中下：分為特大區 + 舊牌區
+      - 特大區：`discard-highlight-bottom`（80×110px）
+      - 舊牌區：`discard-tiles-bottom`（40×60px，由左往右）
   - 右區：`flex-direction: row`（由左往右）
-- 每張牌的樣式（40×60px）
-- 箭頭樣式（SVG 或 CSS），顏色對應座位
-- 響應式佈局，支援滾動
+
+- **當下牌樣式**（`.discard-tile.current-tile`）：
+  - 尺寸：80×110px
+  - 邊框：4px 黃色 (#FFD700)
+  - 發光效果：`box-shadow: 0 0 16px #FFD700`
+  - 脈衝動畫：scale(1) → scale(1.05) → scale(1)，週期 0.6s
+
+- **舊牌樣式**（`.discard-tile.historic-tile`）：
+  - 尺寸：40×60px
+  - 邊框：2px 深灰色
+  - 透明度：0.8
+
+- **滑動動畫**（`.animate-to-side`）：
+  - 0.5s 後滑動至側邊，從特大縮小至小，淡出
 
 驗收標準：
-- ✅ 左區牌由右往左排列
-- ✅ 中央上下區分清晰，都由左往右
-- ✅ 右區牌由左往右排列
-- ✅ 牌卡清晰可見，箭頭清晰可見
+- ✅ 當下牌 80×110px，黃邊，脈衝明顯
+- ✅ 當下牌來自上/下家時滑動至側邊
+- ✅ 舊牌 40×60px，透明度 0.8
+- ✅ 左區由右往左，中央上下各有特大區，右區由左往右
 - ✅ 沒有重疊或佈局問題
 
-### Task 1.4：集成到棋盤
-**文件**：修改 `src/main.ts`
+### Task 1.4：集成到棋盤（含當下牌邏輯）
+**文件**：修改 `src/main.ts` 和 `src/gameController.ts`
 
 實現：
 - 移除舊的 DiscardPool（4 區域佈局）
-- 嵌入新的 DiscardTimeline（中央）
+- 嵌入新的 DiscardTimeline（中央 + 特顯）
 - 更新 showGameBoard()，傳入新的 discardPool
+- 當出牌時，更新 discardPool：
+  - 找到舊的 isCurrentTile = true 的牌，改為 false
+  - 新牌加入，設 isCurrentTile = true
+  - 如果新牌來自上/下家，設置 0.5s 延遲後變為側邊牌
 
 驗收標準：
-- ✅ 海底顯示在棋盤中央
+- ✅ 當下牌明顯顯示在中央特大區
+- ✅ 當下牌黃邊+脈衝+浮起
+- ✅ 當下牌來自上/下家時，0.5s 後滑至側邊
+- ✅ 舊牌透明度 0.8，小牌卡
 - ✅ 出牌後自動更新
 - ✅ 不影響既有 UI
 
@@ -223,19 +272,29 @@ export function getChowOptions(
    - [ ] 3索-4索-5索 吃
    - [ ] 5索-6索-7索 吃
 
-### Case 2：統一海底（新布局）
-1. 東家(自己)打 5m → 中央下方 [5m↑]
-2. 南家(上家)打 2p → 左邊 [2p←]
-3. 西家(對家)打 E → 中央上方 [E↓]
-4. 北家(下家)打 3s → 右邊 [3s→]
-5. 期望：
+### Case 2：統一海底 + 當下牌特顯
+1. 東家(自己)打 5m 
+   - 期望：5m 在中央下方特大區，黃邊+脈衝
+
+2. 南家(上家)打 2p
+   - 期望：2p 在中央特大區，顯示 0.5s
+   - 0.5s 後動畫滑至左邊，變成小牌卡
+   - 5m 變為小牌卡，透明度 0.8
+
+3. 西家(對家)打 E
+   - 期望：E 在中央上方特大區，黃邊+脈衝
+   - 2p 的滑動動畫完成，顯示在左邊
+
+4. 北家(下家)打 3s
+   - 期望：3s 在中央特大區，顯示 0.5s 後滑至右邊
+
+5. 最終效果：
    ```
-                [E↓]
-       [2p←] | [5m↑] | [3s→]
+                 [E↓特大]
+       [2p←小] | (黃邊+脈衝) | [3s→小]
+       
+       [5m↑小] (透明度0.8) [舊牌...]
    ```
-   - 左區牌由右往左排列
-   - 中央上下分開，都由左往右
-   - 右區牌由左往右排列
 
 ### Case 3：高亮吃/碰
 1. 東家打 5m，玩家可吃或碰
@@ -256,7 +315,7 @@ feat(discard-improvements): Phase N - [任務名稱]
 
 ## 預期完成時間
 
-- Phase 1：10-12 分鐘
+- Phase 1：14-16 分鐘（加入當下牌特顯邏輯）
 - Phase 2：8-10 分鐘
 - Phase 3：5-8 分鐘
-- **總計**：25-30 分鐘
+- **總計**：27-34 分鐘
