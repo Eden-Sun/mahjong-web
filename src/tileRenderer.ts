@@ -172,14 +172,28 @@ export function renderMelds(melds: Meld[]): HTMLElement {
 
 /**
  * 渲染手牌为 HTML 字符串（用于现有代码兼容）
+ * 新摸的牌显示在最右边
  */
 export function renderHandHTML(
   hand: string[],
   drawnTile: string | null = null,
   canDiscard: boolean = false
 ): string {
-  return hand.map((tile, idx) => {
-    const isNewDraw = tile === drawnTile
+  // 分离新摸的牌和其他牌
+  const otherTiles: { tile: string; idx: number }[] = []
+  let newDrawItem: { tile: string; idx: number } | null = null
+  
+  hand.forEach((tile, idx) => {
+    if (tile === drawnTile) {
+      // 找到新摸的牌（最后一个匹配）
+      newDrawItem = { tile, idx }
+    } else {
+      otherTiles.push({ tile, idx })
+    }
+  })
+  
+  // 先渲染其他牌，再渲染新摸的牌（最右边）
+  const renderTileHtml = (tile: string, idx: number, isNewDraw: boolean) => {
     const display = getTileDisplay(tile)
     const tileClass = getTileClass(tile)
     const disabled = !canDiscard
@@ -192,13 +206,23 @@ export function renderHandHTML(
       <div 
         class="${classes.join(' ')}" 
         data-tile="${tile}"
+        data-index="${idx}"
         ${disabled ? '' : `onclick="selectTile(${idx})"`}
         style="cursor: ${disabled ? 'not-allowed' : 'pointer'};">
         ${display.suit ? `<div class="tile-suit">${display.suit}</div>` : ''}
         <div class="tile-number">${display.number}</div>
       </div>
     `
-  }).join('')
+  }
+  
+  const html = [
+    // 其他牌
+    ...otherTiles.map(({ tile, idx }) => renderTileHtml(tile, idx, false)),
+    // 新摸的牌在最右边
+    ...(newDrawItem ? [renderTileHtml(newDrawItem.tile, newDrawItem.idx, true)] : [])
+  ]
+  
+  return html.join('')
 }
 
 /**
