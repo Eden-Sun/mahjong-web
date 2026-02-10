@@ -214,8 +214,6 @@ function showGameBoard() {
           
           <!-- 游戏状态 -->
           <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-            <p style="margin: 5px 0; font-size: 1.1em;">📍 階段: <strong>${phaseDisplay[gameState.gamePhase]}</strong></p>
-            <p style="margin: 5px 0; font-size: 1.1em;">👤 當前玩家: <strong style="color: ${gameState.currentPlayerIdx === 0 ? '#4CAF50' : '#FFD700'}">${currentPlayer.name}</strong></p>
             <p style="margin: 5px 0; font-size: 1.1em;">🃏 牌堆剩餘: <strong>${gameState.tileCount}</strong> 張</p>
             ${gameState.lastDiscardedTile ? `<p style="margin: 5px 0; font-size: 1.1em;">🎯 最後出牌: <strong>${tileDisplay[gameState.lastDiscardedTile]}</strong></p>` : ''}
           </div>
