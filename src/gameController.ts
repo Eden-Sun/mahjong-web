@@ -103,17 +103,19 @@ export class GameController {
     const result = GameEngine.drawTile() as any
     if (result && result.tile) {
       const tile = result.tile
-      currentPlayer.hand.push(tile)
-      currentPlayer.hand = sortHand(currentPlayer.hand)
-      this.state.tileCount = result.remaining || 0
       
       console.log(`${currentPlayer.name} 摸牌: ${tile}`)
       
       // 保存新摸的牌
       this.drawnTile = tile
       
-      // 检查自摸和牌
+      // 检查自摸和牌（传入新牌，hand 还未加入该牌）
       const winResult = checkWinNew(currentPlayer.hand, currentPlayer.melds, tile)
+      
+      // 检查成功后再加牌
+      currentPlayer.hand.push(tile)
+      currentPlayer.hand = sortHand(currentPlayer.hand)
+      this.state.tileCount = result.remaining || 0
       
       if (winResult.canWin) {
         console.log(`${currentPlayer.name} 可以自摸！番数: ${winResult.fans}, 牌型: ${winResult.pattern}`)
