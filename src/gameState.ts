@@ -11,13 +11,25 @@ export interface Meld {
 }
 
 /**
+ * 捨牌記錄
+ */
+export interface DiscardedTile {
+  tile: string
+  player: number           // 0=東, 1=南, 2=西, 3=北
+  timestamp: number
+  isCurrentTile: boolean   // 是否是當下牌（最新捨出的牌）
+  claimedBy?: number
+  claimType?: 'pong' | 'chow' | 'kong'
+}
+
+/**
  * 玩家信息
  */
 export interface Player {
   name: string
   hand: string[]          // 手牌
   melds: Meld[]          // 碰、槓、吃的牌組
-  discardPile: string[]  // 已出牌
+  discardPile: string[]  // 已出牌（保留用於顯示）
   score: number
   isHuman: boolean
   canAction: boolean     // 是否有響應權（吃碰槓）
@@ -51,6 +63,7 @@ export interface GameState {
   gamePhase: GamePhase              // 遊戲階段
   lastDiscardedTile: string | null  // 最後出的牌
   lastDiscardPlayer: number | null  // 出牌的玩家索引
+  discardPool: DiscardedTile[]      // 統一的捨牌池（按時間順序）
   tileCount: number                 // 牌堆剩余数量
   round: number                     // 回合数
   waitingForResponse: boolean       // 是否等待响应
@@ -72,6 +85,7 @@ export function createInitialGameState(): GameState {
     gamePhase: 'draw',
     lastDiscardedTile: null,
     lastDiscardPlayer: null,
+    discardPool: [],
     tileCount: 144,
     round: 1,
     waitingForResponse: false,

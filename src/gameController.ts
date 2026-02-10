@@ -172,6 +172,16 @@ export class GameController {
     this.state.lastDiscardedTile = tile
     this.state.lastDiscardPlayer = this.state.currentPlayerIdx
     
+    // 更新統一捨牌池：先將舊的當下牌改為 false
+    this.state.discardPool.forEach(d => d.isCurrentTile = false)
+    // 加入新的當下牌
+    this.state.discardPool.push({
+      tile,
+      player: this.state.currentPlayerIdx,
+      timestamp: Date.now(),
+      isCurrentTile: true,
+    })
+    
     console.log(`${player.name} 出牌: ${tile}`)
     
     // 清除摸牌状态
@@ -208,6 +218,16 @@ export class GameController {
     
     this.state.lastDiscardedTile = tile
     this.state.lastDiscardPlayer = this.state.currentPlayerIdx
+    
+    // 更新統一捨牌池：先將舊的當下牌改為 false
+    this.state.discardPool.forEach(d => d.isCurrentTile = false)
+    // 加入新的當下牌
+    this.state.discardPool.push({
+      tile,
+      player: this.state.currentPlayerIdx,
+      timestamp: Date.now(),
+      isCurrentTile: true,
+    })
     
     console.log(`${currentPlayer.name} 出牌: ${tile}`)
     
@@ -359,6 +379,14 @@ export class GameController {
     if (this.state.lastDiscardPlayer !== null) {
       const discardPlayer = this.state.players[this.state.lastDiscardPlayer]
       discardPlayer.discardPile.pop()
+      
+      // 從統一捨牌池中標記該牌被吃/碰/杠
+      const lastDiscard = this.state.discardPool.find(d => d.isCurrentTile)
+      if (lastDiscard) {
+        lastDiscard.claimedBy = chosen.playerIdx
+        lastDiscard.claimType = chosen.action as any
+        lastDiscard.isCurrentTile = false
+      }
     }
     
     switch (chosen.action) {

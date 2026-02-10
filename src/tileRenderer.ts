@@ -180,15 +180,16 @@ export function renderHandHTML(
   canDiscard: boolean = false
 ): string {
   // 分离新摸的牌和其他牌
-  const otherTiles: { tile: string; idx: number }[] = []
-  let newDrawItem: { tile: string; idx: number } | null = null
+  type TileItem = { tile: string; idx: number }
+  const otherTiles: TileItem[] = []
+  let newDrawItem: TileItem | null = null
   
   hand.forEach((tile, idx) => {
-    if (tile === drawnTile) {
-      // 找到新摸的牌（最后一个匹配）
-      newDrawItem = { tile, idx }
+    if (drawnTile && tile === drawnTile && newDrawItem === null) {
+      // 找到新摸的牌（第一个匹配）
+      newDrawItem = { tile, idx } as TileItem
     } else {
-      otherTiles.push({ tile, idx })
+      otherTiles.push({ tile, idx } as TileItem)
     }
   })
   
@@ -215,12 +216,18 @@ export function renderHandHTML(
     `
   }
   
-  const html = [
-    // 其他牌
-    ...otherTiles.map(({ tile, idx }) => renderTileHtml(tile, idx, false)),
-    // 新摸的牌在最右边
-    ...(newDrawItem ? [renderTileHtml(newDrawItem.tile, newDrawItem.idx, true)] : [])
-  ]
+  const html: string[] = []
+  
+  // 其他牌
+  for (const item of otherTiles) {
+    html.push(renderTileHtml(item.tile, item.idx, false))
+  }
+  
+  // 新摸的牌在最右边
+  if (newDrawItem !== null) {
+    const item: TileItem = newDrawItem
+    html.push(renderTileHtml(item.tile, item.idx, true))
+  }
   
   return html.join('')
 }

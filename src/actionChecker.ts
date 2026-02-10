@@ -61,6 +61,25 @@ export function canAddKong(hand: string[], melds: Meld[]): string[] {
 }
 
 /**
+ * 吃牌選項
+ */
+export interface ChowOption {
+  tiles: string[]  // 組成的順子（已排序）
+  with: string     // 要吃的牌
+}
+
+/**
+ * 获取所有可吃的方式（新接口）
+ */
+export function getChowOptions(hand: string[], targetTile: string): ChowOption[] {
+  const combinations = canChow(hand, targetTile)
+  return combinations.map(tiles => ({
+    tiles,
+    with: targetTile,
+  }))
+}
+
+/**
  * 检查是否可以吃
  * 条件：只能吃序数牌（1-9m, 1-9s, 1-9p），不能吃风牌和箭牌
  * 返回所有可能的吃牌组合

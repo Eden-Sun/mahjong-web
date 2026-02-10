@@ -1,9 +1,13 @@
 import './style.css'
 import './tile.css'
+import './styles/discard-timeline.css'
 import { initWasm, GameEngine } from './wasm'
 import { GameState, createInitialGameState, sortHand } from './gameState'
 import { GameController } from './gameController'
 import { renderHandHTML, renderMeldsHTML } from './tileRenderer'
+import { renderDiscardTimeline } from './components/DiscardTimeline'
+import { initChowSelector, showChowSelector } from './components/ChowSelector'
+import { getChowOptions } from './actionChecker'
 
 const app = document.getElementById('app')!
 
@@ -58,6 +62,9 @@ async function init() {
     `
     return
   }
+
+  // 初始化吃牌選擇器
+  initChowSelector()
 
   // 顯示主菜單
   showMenu()
@@ -191,6 +198,19 @@ function showGameBoard() {
   const drawnTile = gameController?.getDrawnTile() || null
   const canWinAfterDraw = gameController?.getCanWinAfterDraw() || false
   const winResultAfterDraw = gameController?.getWinResultAfterDraw() || null
+  
+  // 檢查高亮（可吃/碰的牌）
+  let highlightTile: string | null = null
+  let highlightType: 'chow' | 'pong' | null = null
+  
+  if (hasResponseRight && gameState.lastDiscardedTile) {
+    highlightTile = gameState.lastDiscardedTile
+    if (availableActions.includes('chow')) {
+      highlightType = 'chow'
+    } else if (availableActions.includes('pong')) {
+      highlightType = 'pong'
+    }
+  }
 
   app.innerHTML = `
     <div style="width: 100%; height: 100vh; background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 20px; font-family: Arial, sans-serif; display: flex; flex-direction: column;">
@@ -209,7 +229,7 @@ function showGameBoard() {
         </div>
 
         <!-- 中央牌桌 -->
-        <div style="background: rgba(0, 0, 0, 0.3); border: 3px solid #FFD700; border-radius: 12px; padding: 20px; text-align: center; color: white; min-width: 350px;">
+        <div style="background: rgba(0, 0, 0, 0.3); border: 3px solid #FFD700; border-radius: 12px; padding: 20px; text-align: center; color: white; min-width: 800px; max-width: 1000px;">
           <h2 style="margin: 0 0 15px 0; color: #FFD700;">🀄 牌桌</h2>
           
           <!-- 游戏状态 -->
@@ -218,8 +238,15 @@ function showGameBoard() {
             ${gameState.lastDiscardedTile ? `<p style="margin: 5px 0; font-size: 1.1em;">🎯 最後出牌: <strong>${tileDisplay[gameState.lastDiscardedTile]}</strong></p>` : ''}
           </div>
           
+          <!-- 捨牌池時間線 -->
+          ${renderDiscardTimeline({ 
+            discardPool: gameState.discardPool,
+            highlightTile,
+            highlightType
+          })}
+          
           <!-- 状态提示 -->
-          <div style="background: rgba(255, 255, 255, 0.15); padding: 10px; border-radius: 6px; margin-bottom: 15px; min-height: 40px;">
+          <div style="background: rgba(255, 255, 255, 0.15); padding: 10px; border-radius: 6px; margin: 15px 0; min-height: 40px;">
             ${getStatusMessage(canDiscard, hasResponseRight, gameState.gamePhase, gameState.currentPlayerIdx, canWinAfterDraw, winResultAfterDraw)}
           </div>
           
@@ -358,9 +385,6 @@ function renderAIPlayer(player: any, isCurrentPlayer: boolean = false, orientati
         <p style="margin: 0 0 10px 0; font-weight: bold;">${player.name} ${isCurrentPlayer ? '👈' : ''}</p>
         <p style="margin: 0 0 10px 0; font-size: 0.9em;">🃏 ${player.hand.length} 張</p>
         ${player.melds && player.melds.length > 0 ? `<p style="margin: 0 0 10px 0; font-size: 0.9em;">📦 ${player.melds.length} 組</p>` : ''}
-        <div style="border-top: 1px solid #FFF; padding-top: 10px; writing-mode: initial;">
-          ${player.discardPile.slice(-6).map((t: string) => `<span style="display: inline-block; margin: 2px; background: rgba(255,255,255,0.2); padding: 4px 6px; border-radius: 4px; font-size: 0.8em;">${tileDisplay[t] || t}</span>`).join('')}
-        </div>
       </div>
     `
   }
@@ -368,17 +392,10 @@ function renderAIPlayer(player: any, isCurrentPlayer: boolean = false, orientati
   return `
     <div style="background: rgba(255, 255, 255, 0.1); border: ${borderWidth} solid ${borderColor}; border-radius: 8px; padding: 15px; color: white; flex: 1; min-width: 200px;">
       <h4 style="margin: 0 0 10px 0; color: ${isCurrentPlayer ? '#4CAF50' : '#FFD700'};">${player.name} ${isCurrentPlayer ? '👈' : ''}</h4>
-      <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9em;">
+      <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
         <span>🃏 ${player.hand.length} 張</span>
         ${player.melds && player.melds.length > 0 ? `<span>📦 ${player.melds.length} 組</span>` : ''}
         <span>💰 ${player.score}</span>
-      </div>
-      <div style="background: rgba(0, 0, 0, 0.3); padding: 8px; border-radius: 6px; min-height: 40px; display: flex; flex-wrap: wrap; gap: 4px;">
-        ${player.discardPile.slice(-12).map((t: string) => `
-          <span style="background: rgba(255,255,255,0.2); padding: 4px 6px; border-radius: 4px; font-size: 0.8em;">
-            ${tileDisplay[t] || t}
-          </span>
-        `).join('')}
       </div>
     </div>
   `
@@ -395,7 +412,7 @@ function selectTile(idx: number) {
   gameController.playerDiscard(idx)
 }
 
-function playerResponse(action: string) {
+async function playerResponse(action: string) {
   if (!gameController) {
     console.warn('游戏控制器未初始化')
     return
@@ -403,27 +420,27 @@ function playerResponse(action: string) {
   
   // 如果是吃牌，需要选择组合
   if (action === 'chow' && gameState.lastDiscardedTile) {
-    const chowOptions = gameController.getChowOptions(0, gameState.lastDiscardedTile)
+    const humanPlayer = gameState.players[0]
+    const options = getChowOptions(humanPlayer.hand, gameState.lastDiscardedTile)
     
-    if (chowOptions.length === 0) {
+    if (options.length === 0) {
       alert('无法吃牌')
       return
     }
     
-    // 如果有多个选项，让玩家选择
-    if (chowOptions.length > 1) {
-      const optionTexts = chowOptions.map((tiles, idx) => 
-        `${idx + 1}. ${tiles.map(t => tileDisplay[t] || t).join(' ')}`
-      ).join('\n')
+    // 如果有多个选项，显示选择对话框
+    if (options.length > 1) {
+      const selectedTiles = await showChowSelector(options)
       
-      const choice = prompt(`請選擇吃牌組合：\n${optionTexts}\n\n輸入數字 (1-${chowOptions.length}):`)
-      const choiceIdx = parseInt(choice || '1') - 1
-      
-      if (choiceIdx >= 0 && choiceIdx < chowOptions.length) {
-        gameController.playerResponse('chow', chowOptions[choiceIdx])
+      if (selectedTiles) {
+        gameController.playerResponse('chow', selectedTiles)
+      } else {
+        // 玩家選擇過
+        gameController.playerResponse('pass')
       }
     } else {
-      gameController.playerResponse('chow', chowOptions[0])
+      // 只有一种吃法，直接执行
+      gameController.playerResponse('chow', options[0].tiles)
     }
   } else {
     gameController.playerResponse(action as any)
