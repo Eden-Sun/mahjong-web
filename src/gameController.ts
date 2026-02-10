@@ -5,13 +5,13 @@ import {
   canPong, 
   canKong, 
   canChow, 
-  checkWin,
   executePong,
   executeKong,
   executeChow,
   canConcealedKong,
   executeConcealedKong,
 } from './actionChecker'
+import { checkWin as checkWinNew, WinResult } from './winChecker'
 import { getAIResponse, getAIDiscard, checkAISelfWin } from './aiLogic'
 import { GameEngine } from './wasm'
 
@@ -22,6 +22,9 @@ import { GameEngine } from './wasm'
 export class GameController {
   private state: GameState
   private onStateChange?: (state: GameState) => void
+  private drawnTile: string | null = null  // 新摸的牌
+  private canWinAfterDraw: boolean = false  // 摸牌后是否可以和
+  private winResultAfterDraw: WinResult | null = null  // 摸牌后的和牌结果
   
   constructor(state: GameState, onStateChange?: (state: GameState) => void) {
     this.state = state
@@ -33,6 +36,27 @@ export class GameController {
    */
   getState(): GameState {
     return this.state
+  }
+  
+  /**
+   * 获取新摸的牌
+   */
+  getDrawnTile(): string | null {
+    return this.drawnTile
+  }
+  
+  /**
+   * 获取摸牌后是否可以和
+   */
+  getCanWinAfterDraw(): boolean {
+    return this.canWinAfterDraw
+  }
+  
+  /**
+   * 获取摸牌后的和牌结果
+   */
+  getWinResultAfterDraw(): WinResult | null {
+    return this.winResultAfterDraw
   }
   
   /**
@@ -78,20 +102,36 @@ export class GameController {
     // 从 WASM 摸牌
     const result = GameEngine.drawTile() as any
     if (result && result.tile) {
-      currentPlayer.hand.push(result.tile)
+      const tile = result.tile
+      currentPlayer.hand.push(tile)
       currentPlayer.hand = sortHand(currentPlayer.hand)
       this.state.tileCount = result.remaining || 0
       
-      console.log(`${currentPlayer.name} 摸牌: ${result.tile}`)
+      console.log(`${currentPlayer.name} 摸牌: ${tile}`)
+      
+      // 保存新摸的牌
+      this.drawnTile = tile
       
       // 检查自摸和牌
-      if (!currentPlayer.isHuman) {
-        if (checkAISelfWin(currentPlayer)) {
+      const winResult = checkWinNew(currentPlayer.hand, currentPlayer.melds, tile)
+      
+      if (winResult.canWin) {
+        console.log(`${currentPlayer.name} 可以自摸！番数: ${winResult.fans}, 牌型: ${winResult.pattern}`)
+        
+        if (currentPlayer.isHuman) {
+          // 人类玩家 - 保存和牌信息，等待玩家选择
+          this.canWinAfterDraw = true
+          this.winResultAfterDraw = winResult
+        } else {
+          // AI 玩家 - 自动和牌
           console.log(`${currentPlayer.name} 自摸！`)
           this.state.gamePhase = 'end'
           this.updateState()
           return
         }
+      } else {
+        this.canWinAfterDraw = false
+        this.winResultAfterDraw = null
       }
       
       // 进入出牌阶段
@@ -131,6 +171,11 @@ export class GameController {
     this.state.lastDiscardPlayer = this.state.currentPlayerIdx
     
     console.log(`${player.name} 出牌: ${tile}`)
+    
+    // 清除摸牌状态
+    this.drawnTile = null
+    this.canWinAfterDraw = false
+    this.winResultAfterDraw = null
     
     // 进入响应阶段
     this.state.gamePhase = 'response'
@@ -232,8 +277,8 @@ export class GameController {
     const player = this.state.players[playerIdx]
     const actions: PlayerAction[] = []
     
-    // 检查和牌
-    const winCheck = checkWin(player.hand, player.melds, tile)
+    // 检查和牌（点和）
+    const winCheck = checkWinNew(player.hand, player.melds, undefined, tile)
     if (winCheck.canWin) {
       actions.push('win')
     }
@@ -414,5 +459,22 @@ export class GameController {
   getChowOptions(playerIdx: number, tile: string): string[][] {
     const player = this.state.players[playerIdx]
     return canChow(player.hand, tile)
+  }
+  
+  /**
+   * 玩家自摸和牌
+   */
+  async playerWin(): Promise<void> {
+    if (!this.canWinAfterDraw || !this.winResultAfterDraw) {
+      console.warn('当前不能和牌')
+      return
+    }
+    
+    const player = this.state.players[0]
+    console.log(`${player.name} 自摸！番数: ${this.winResultAfterDraw.fans}, 牌型: ${this.winResultAfterDraw.pattern}`)
+    
+    // 游戏结束
+    this.state.gamePhase = 'end'
+    this.updateState()
   }
 }

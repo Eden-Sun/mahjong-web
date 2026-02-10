@@ -1,7 +1,8 @@
 // AI 决策逻辑
 
 import { Player, PlayerAction } from './gameState'
-import { canPong, canKong, canChow, checkWin } from './actionChecker'
+import { canPong, canKong, canChow } from './actionChecker'
+import { checkWin } from './winChecker'
 
 /**
  * AI 决定是否响应他人出牌
@@ -12,8 +13,8 @@ export function getAIResponse(
   tile: string,
   isNextPlayer: boolean  // 是否是下家（只有下家可以吃）
 ): { action: PlayerAction; tiles?: string[] } {
-  // 1. 检查是否可以和牌
-  const winCheck = checkWin(player.hand, player.melds, tile)
+  // 1. 检查是否可以和牌（点和）
+  const winCheck = checkWin(player.hand, player.melds, undefined, tile)
   if (winCheck.canWin) {
     return { action: 'win' }
   }
@@ -96,9 +97,9 @@ export function getAIDiscard(hand: string[]): number {
 export function checkAISelfWin(player: Player): boolean {
   if (player.hand.length === 0) return false
   
-  // 检查最后一张牌是否能和
+  // 检查当前手牌是否能和（自摸）
   const lastTile = player.hand[player.hand.length - 1]
-  const winCheck = checkWin(player.hand.slice(0, -1), player.melds, lastTile)
+  const winCheck = checkWin(player.hand, player.melds, lastTile)
   
   return winCheck.canWin
 }

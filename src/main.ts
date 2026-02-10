@@ -1,7 +1,9 @@
 import './style.css'
+import './tile.css'
 import { initWasm, GameEngine } from './wasm'
 import { GameState, createInitialGameState, sortHand } from './gameState'
 import { GameController } from './gameController'
+import { renderHandHTML, renderMeldsHTML } from './tileRenderer'
 
 const app = document.getElementById('app')!
 
@@ -184,6 +186,11 @@ function showGameBoard() {
     const isNextPlayer = (gameState.lastDiscardPlayer + 1) % 4 === 0
     availableActions = gameController?.getAvailableActions(0, gameState.lastDiscardedTile, isNextPlayer) || []
   }
+  
+  // 获取摸牌后的状态
+  const drawnTile = gameController?.getDrawnTile() || null
+  const canWinAfterDraw = gameController?.getCanWinAfterDraw() || false
+  const winResultAfterDraw = gameController?.getWinResultAfterDraw() || null
 
   app.innerHTML = `
     <div style="width: 100%; height: 100vh; background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 20px; font-family: Arial, sans-serif; display: flex; flex-direction: column;">
@@ -215,7 +222,7 @@ function showGameBoard() {
           
           <!-- 状态提示 -->
           <div style="background: rgba(255, 255, 255, 0.15); padding: 10px; border-radius: 6px; margin-bottom: 15px; min-height: 40px;">
-            ${getStatusMessage(canDiscard, hasResponseRight, gameState.gamePhase, gameState.currentPlayerIdx)}
+            ${getStatusMessage(canDiscard, hasResponseRight, gameState.gamePhase, gameState.currentPlayerIdx, canWinAfterDraw, winResultAfterDraw)}
           </div>
           
           <button onclick="showMenu()" style="
@@ -246,10 +253,34 @@ function showGameBoard() {
         
         <!-- 碰杠吃的牌组 -->
         ${humanPlayer.melds.length > 0 ? `
-          <div style="margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 6px;">
-            <strong style="color: #666;">已組牌：</strong>
-            ${renderMelds(humanPlayer.melds)}
+          <div style="margin-bottom: 15px;">
+            <strong style="color: #666; display: block; margin-bottom: 8px;">已組牌：</strong>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+              ${renderMeldsHTML(humanPlayer.melds)}
+            </div>
           </div>
+        ` : ''}
+        
+        <!-- 自摸和牌按钮 -->
+        ${canWinAfterDraw && winResultAfterDraw ? `
+          <div style="margin-bottom: 15px; padding: 15px; background: #e8f5e9; border: 3px solid #4CAF50; border-radius: 8px; animation: pulse 1.5s ease-in-out infinite;">
+            <strong style="color: #2e7d32; font-size: 1.2em;">🏆 可以和牌！</strong>
+            <p style="color: #2e7d32; margin: 8px 0;">番數：${winResultAfterDraw.fans} 番 | 牌型：${winResultAfterDraw.pattern}</p>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+              <button onclick="playerWin()" style="padding: 12px 24px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1.1em; flex: 1;">
+                🎉 和牌
+              </button>
+              <button onclick="playerPass()" style="padding: 12px 24px; background: #9e9e9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                ⏭️ 過
+              </button>
+            </div>
+          </div>
+          <style>
+            @keyframes pulse {
+              0%, 100% { transform: scale(1); }
+              50% { transform: scale(1.02); }
+            }
+          </style>
         ` : ''}
         
         <!-- 响应按钮 -->
@@ -268,7 +299,7 @@ function showGameBoard() {
         
         <!-- 手牌 -->
         <div style="display: flex; flex-wrap: wrap; gap: 8px; min-height: 80px; align-content: flex-start;">
-          ${renderPlayerHand(humanPlayer.hand, canDiscard)}
+          ${renderHandHTML(humanPlayer.hand, drawnTile, canDiscard)}
         </div>
         
         <!-- 弃牌堆 -->
@@ -285,7 +316,14 @@ function showGameBoard() {
   `
 }
 
-function getStatusMessage(canDiscard: boolean, hasResponseRight: boolean, phase: string, currentPlayerIdx: number): string {
+function getStatusMessage(
+  canDiscard: boolean, 
+  hasResponseRight: boolean, 
+  phase: string, 
+  currentPlayerIdx: number,
+  canWinAfterDraw: boolean = false,
+  winResultAfterDraw: any = null
+): string {
   if (phase === 'end') {
     return '<span style="color: #FFD700; font-size: 1.2em;">🎊 遊戲結束！</span>'
   }
@@ -295,7 +333,9 @@ function getStatusMessage(canDiscard: boolean, hasResponseRight: boolean, phase:
   }
   
   if (currentPlayerIdx === 0) {
-    if (canDiscard) {
+    if (canWinAfterDraw && winResultAfterDraw) {
+      return `<span style="color: #4CAF50; font-size: 1.2em;">🏆 可以和牌！(${winResultAfterDraw.fans} 番)</span>`
+    } else if (canDiscard) {
       return '<span style="color: #4CAF50; font-size: 1.1em;">👉 請點擊手牌出牌</span>'
     } else if (phase === 'draw') {
       return '<span style="color: #2196F3; font-size: 1.1em;">📥 正在摸牌...</span>'
@@ -309,14 +349,6 @@ function getStatusMessage(canDiscard: boolean, hasResponseRight: boolean, phase:
   return ''
 }
 
-function renderMelds(melds: any[]): string {
-  return melds.map(meld => {
-    const typeIcon = meld.type === 'pong' ? '🤝' : meld.type === 'kong' ? '🔄' : '➡️'
-    return `<span style="display: inline-block; margin: 4px; padding: 6px 10px; background: white; border: 2px solid #4CAF50; border-radius: 6px;">
-      ${typeIcon} ${meld.tiles.map((t: string) => tileDisplay[t] || t).join(' ')}
-    </span>`
-  }).join('')
-}
 
 function renderAIPlayer(player: any, isCurrentPlayer: boolean = false, orientation: 'horizontal' | 'vertical' = 'horizontal') {
   const borderColor = isCurrentPlayer ? '#4CAF50' : '#FFF'
@@ -354,37 +386,6 @@ function renderAIPlayer(player: any, isCurrentPlayer: boolean = false, orientati
   `
 }
 
-function renderPlayerHand(hand: string[], canDiscard: boolean) {
-  return hand.map((tile, idx) => {
-    const disabled = !canDiscard
-    const opacity = disabled ? '0.5' : '1'
-    const cursor = disabled ? 'not-allowed' : 'pointer'
-    
-    return `
-      <button 
-        onclick="${disabled ? '' : `selectTile(${idx})`}" 
-        style="
-          padding: 12px 16px;
-          background: linear-gradient(to bottom, #FFFFFF, #E8E8E8);
-          border: 3px solid #333;
-          border-radius: 8px;
-          cursor: ${cursor};
-          font-weight: bold;
-          font-size: 1em;
-          min-width: 70px;
-          text-align: center;
-          box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-          transition: transform 0.1s, box-shadow 0.1s;
-          opacity: ${opacity};
-        "
-        ${disabled ? 'disabled' : ''}
-        onmouseover="${disabled ? '' : "this.style.transform='translateY(-4px)'; this.style.boxShadow='0 6px 12px rgba(0,0,0,0.3)';"}"
-        onmouseout="${disabled ? '' : "this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.2)';"}">
-        ${tileDisplay[tile] || tile}
-      </button>
-    `
-  }).join('')
-}
 
 function selectTile(idx: number) {
   if (!gameController) {
@@ -431,6 +432,26 @@ function playerResponse(action: string) {
   }
 }
 
+function playerWin() {
+  if (!gameController) {
+    console.warn('游戏控制器未初始化')
+    return
+  }
+  
+  gameController.playerWin()
+}
+
+function playerPass() {
+  if (!gameController) {
+    console.warn('游戏控制器未初始化')
+    return
+  }
+  
+  // 玩家选择不和，继续出牌
+  // 不做任何操作，玩家可以继续选择出牌
+  console.log('玩家选择过，继续出牌')
+}
+
 // 全局函數
 Object.assign(window, {
   showMenu,
@@ -438,6 +459,8 @@ Object.assign(window, {
   showRules,
   selectTile,
   playerResponse,
+  playerWin,
+  playerPass,
 })
 
 // 啟動應用

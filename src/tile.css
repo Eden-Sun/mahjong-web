@@ -1,0 +1,108 @@
+/* 麻将牌卡样式 */
+
+.tile {
+  width: 60px;
+  height: 80px;
+  border: 3px solid #333;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  cursor: pointer;
+  position: relative;
+  background: white;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s;
+  user-select: none;
+}
+
+/* 牌类颜色 */
+.tile.tile-m { --color: #d32f2f; }
+.tile.tile-p { --color: #1976d2; }
+.tile.tile-s { --color: #388e3c; }
+.tile.tile-E, .tile.tile-S, .tile.tile-W, .tile.tile-N { --color: #f57f17; }
+.tile.tile-B, .tile.tile-F, .tile.tile-Z { --color: #7b1fa2; }
+
+/* 牌面元素 */
+.tile-suit {
+  font-size: 12px;
+  color: var(--color);
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.tile-number {
+  font-size: 24px;
+  color: var(--color);
+  line-height: 1;
+}
+
+/* 悬停效果 */
+.tile:hover:not(.disabled) {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* 禁用状态 */
+.tile.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 新摸的牌 - 金色边框 + 发光效果 */
+.tile.new-draw {
+  border: 3px solid #FFD700;
+  box-shadow: 0 0 8px #FFD700, 0 4px 8px rgba(0, 0, 0, 0.2);
+  animation: glow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 8px #FFD700, 0 4px 8px rgba(0, 0, 0, 0.2);
+  }
+  to {
+    box-shadow: 0 0 16px #FFD700, 0 4px 8px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* 手牌容器 */
+.hand-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 80px;
+  align-content: flex-start;
+}
+
+/* 牌组容器（碰杠吃） */
+.melds-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.meld-group {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+  background: #f5f5f5;
+  border: 2px solid #4CAF50;
+  border-radius: 6px;
+}
+
+.meld-group .tile {
+  width: 50px;
+  height: 65px;
+}
+
+.meld-group .tile-number {
+  font-size: 20px;
+}
+
+.meld-group .tile-suit {
+  font-size: 10px;
+}
