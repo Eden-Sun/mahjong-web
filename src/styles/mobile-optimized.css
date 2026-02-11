@@ -1,0 +1,424 @@
+/* 麻將遊戲手機優化 - 完整重構 + 性能優化 */
+
+/* ========== 全局設定 ========== */
+@media (max-width: 768px) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: fixed;
+    -webkit-overflow-scrolling: touch;
+    /* 性能優化：平滑滾動 */
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    padding: 0 !important;
+    /* 性能優化：GPU 加速 */
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  /* ========== 主容器 - 嚴格控制高度 ========== */
+  #game-container {
+    padding: 6px !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    min-height: 100vh !important; /* 防止縮小 */
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    /* 性能優化：GPU 加速 */
+    transform: translateZ(0);
+    will-change: contents;
+  }
+
+  /* ========== 頂部玩家區域 - 固定高度 ========== */
+  .top-players {
+    flex: 0 0 auto !important; /* 嚴格固定，不增長不縮小 */
+    display: flex;
+    gap: 6px;
+    max-height: 80px;
+    min-height: 60px;
+    overflow: hidden; /* 防止內容溢出 */
+  }
+  
+  .ai-player-container {
+    font-size: 0.75em !important;
+    padding: 6px 8px !important;
+    min-height: 60px;
+  }
+  
+  .ai-player-container h4 {
+    font-size: 0.95em !important;
+    margin: 0 0 4px 0 !important;
+  }
+  
+  .ai-player-container > div {
+    font-size: 0.85em !important;
+  }
+
+  /* ========== 中間遊戲區域 - 彈性增長，可滾動 ========== */
+  .middle-area {
+    flex: 1 1 0 !important; /* 增長以填充可用空間 */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden !important;
+    min-height: 0 !important; /* 關鍵：允許縮小 */
+    max-height: 100% !important; /* 不超出父容器 */
+  }
+  
+  .left-player {
+    display: none; /* 手機上隱藏左側玩家 */
+  }
+
+  /* ========== 牌桌 - 可滾動的核心區域 ========== */
+  .game-board {
+    flex: 1 1 0 !important; /* 增長以填充空間 */
+    padding: 8px !important;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden !important;
+    min-height: 0 !important; /* 關鍵：允許觸發滾動 */
+    max-height: 100% !important;
+    /* 性能優化 */
+    contain: layout style;
+  }
+  
+  .game-board-title {
+    font-size: 1.1em !important;
+    margin: 0 0 6px 0 !important;
+    flex: 0 0 auto !important; /* 固定，不參與滾動 */
+  }
+  
+  .game-board-content {
+    flex: 1 1 0 !important; /* 增長以填充剩餘空間 */
+    overflow-y: auto !important; /* 垂直滾動 */
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    min-height: 0 !important; /* 關鍵：允許縮小並觸發滾動 */
+    max-height: 100% !important; /* 確保不會超出父容器 */
+    /* 性能優化：啟用 GPU 加速滾動 */
+    transform: translateZ(0);
+    will-change: scroll-position;
+    /* 優化滾動性能 */
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+  }
+
+  /* ========== 遊戲狀態 ========== */
+  .game-status {
+    padding: 8px !important;
+    margin-bottom: 8px !important;
+  }
+  
+  .game-status p {
+    font-size: 0.9em !important;
+    margin: 2px 0 !important;
+  }
+
+  /* ========== 捨牌池 ========== */
+  .discard-timeline-container {
+    padding: 6px !important;
+    gap: 6px !important;
+    min-height: 100px !important;
+    max-height: 160px !important;
+    margin-bottom: 8px !important;
+    /* 性能優化：減少重繪 */
+    contain: layout style paint;
+    will-change: contents;
+  }
+  
+  .discard-tile.current-tile {
+    width: 55px !important;
+    height: 75px !important;
+    /* 性能優化：使用 transform 而非其他屬性 */
+    will-change: transform, opacity;
+  }
+
+  .discard-tile.current-tile .tile-content {
+    font-size: 1.4em !important;
+  }
+
+  .discard-tile.historic-tile {
+    width: 30px !important;
+    height: 45px !important;
+    /* 性能優化 */
+    will-change: auto;
+  }
+
+  .discard-tile.historic-tile .tile-content {
+    font-size: 0.95em !important;
+  }
+
+  /* ========== 狀態提示 ========== */
+  .status-message {
+    font-size: 0.9em !important;
+    padding: 6px !important;
+    min-height: 32px !important;
+    margin: 8px 0 !important;
+  }
+
+  /* ========== 響應按鈕 ========== */
+  .response-button {
+    min-height: 44px !important;
+    font-size: 0.95em !important;
+    padding: 10px 16px !important;
+    border-radius: 8px !important;
+  }
+
+  /* ========== 手牌區域 - 嚴格固定在底部 ========== */
+  .player-hand-container {
+    flex: 0 0 220px !important; /* 固定高度 220px，確保始終可見 */
+    padding: 10px !important;
+    max-height: 40vh !important; /* 最大佔用40%視口 */
+    min-height: 220px !important; /* 確保最小可見高度 */
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    overflow: visible !important; /* 改成 visible，確保不裁切內容 */
+    position: relative;
+    z-index: 100 !important; /* 確保在最上層 */
+    background: rgba(255, 255, 255, 0.95) !important; /* 確保背景可見 */
+    pointer-events: auto !important; /* 確保可點擊 */
+  }
+  
+  .player-hand-header {
+    flex: 0 0 auto !important; /* 固定標題 */
+  }
+  
+  .player-hand-header h3 {
+    font-size: 1em !important;
+    margin: 0 !important;
+  }
+  
+  .player-hand-tiles {
+    flex: 1 1 0 !important; /* 增長以填充剩餘空間 */
+    overflow-y: auto !important; /* 手牌過多時可滾動 */
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    min-height: 0 !important; /* 允許縮小並觸發滾動 */
+    gap: 6px !important;
+    /* 性能優化：平滑滾動 + GPU 加速 */
+    scroll-behavior: smooth;
+    transform: translateZ(0);
+    will-change: scroll-position;
+    overscroll-behavior: contain;
+  }
+
+  /* ========== 手牌按鈕 ========== */
+  .hand-tile-button,
+  .tile {
+    width: 42px !important;
+    height: 56px !important;
+    min-width: 42px !important;
+    min-height: 56px !important;
+    /* 性能優化：使用 transform 而非其他屬性 */
+    will-change: transform;
+    pointer-events: auto !important; /* 確保按鈕可點擊 */
+    cursor: pointer !important;
+  }
+  
+  .tile-number {
+    font-size: 17px !important;
+  }
+  
+  .tile-suit {
+    font-size: 9px !important;
+  }
+
+  /* ========== 已組牌 ========== */
+  .meld-group {
+    padding: 5px !important;
+    gap: 3px !important;
+  }
+  
+  .meld-group .tile {
+    width: 38px !important;
+    height: 52px !important;
+  }
+  
+  .meld-group .tile-number {
+    font-size: 16px !important;
+  }
+
+  /* ========== 吃牌選擇器 ========== */
+  .chow-selector-dialog {
+    width: 90% !important;
+    max-width: 350px !important;
+    padding: 16px !important;
+  }
+  
+  .chow-option-btn {
+    min-height: 56px !important;
+    font-size: 1em !important;
+  }
+  
+  .chow-tile {
+    font-size: 1.1em !important;
+    padding: 6px !important;
+  }
+
+  /* ========== 其他按鈕 ========== */
+  button {
+    min-height: 44px;
+    font-size: 0.95em;
+  }
+
+  /* ========== 滾動條優化 ========== */
+  .game-board-content::-webkit-scrollbar,
+  .player-hand-tiles::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .game-board-content::-webkit-scrollbar-track,
+  .player-hand-tiles::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .game-board-content::-webkit-scrollbar-thumb,
+  .player-hand-tiles::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+  }
+}
+
+/* ========== 小手機優化 - 更緊湊的空間利用 ========== */
+@media (max-width: 480px) {
+  #game-container {
+    padding: 5px !important;
+    gap: 5px !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    min-height: 100vh !important;
+  }
+  
+  .top-players {
+    gap: 5px;
+    max-height: 70px;
+    min-height: 55px;
+    flex: 0 0 auto !important;
+  }
+  
+  .ai-player-container {
+    font-size: 0.7em !important;
+    padding: 5px 6px !important;
+  }
+  
+  .middle-area {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+  }
+  
+  .game-board {
+    padding: 6px !important;
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+  }
+  
+  .game-board-title {
+    font-size: 1em !important;
+  }
+  
+  .game-board-content {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+  }
+  
+  .discard-timeline-container {
+    min-height: 90px !important;
+    max-height: 140px !important;
+  }
+  
+  .discard-tile.current-tile {
+    width: 50px !important;
+    height: 68px !important;
+  }
+  
+  .discard-tile.historic-tile {
+    width: 28px !important;
+    height: 40px !important;
+  }
+  
+  .player-hand-container {
+    padding: 8px !important;
+    max-height: 38vh !important; /* 減少到38% */
+    min-height: 140px !important;
+    flex: 0 0 auto !important;
+  }
+  
+  .hand-tile-button,
+  .tile {
+    width: 38px !important;
+    height: 52px !important;
+    min-width: 38px !important;
+    min-height: 52px !important;
+  }
+  
+  .tile-number {
+    font-size: 15px !important;
+  }
+  
+  .tile-suit {
+    font-size: 8px !important;
+  }
+  
+  .meld-group .tile {
+    width: 36px !important;
+    height: 50px !important;
+  }
+  
+  .meld-group .tile-number {
+    font-size: 15px !important;
+  }
+}
+
+/* ========== 橫屏優化 - 充分利用水平空間 ========== */
+@media (max-width: 812px) and (orientation: landscape) {
+  #game-container {
+    padding: 4px !important;
+    gap: 4px !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    min-height: 100vh !important;
+  }
+  
+  .top-players {
+    max-height: 70px;
+    flex: 0 0 auto !important;
+  }
+  
+  .middle-area {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+  }
+  
+  .game-board {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+  }
+  
+  .game-board-content {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+  }
+  
+  .player-hand-container {
+    max-height: 50vh !important; /* 橫屏時增加到50% */
+    min-height: 120px !important;
+    flex: 0 0 auto !important;
+  }
+  
+  .discard-timeline-container {
+    min-height: 80px !important;
+    max-height: 120px !important;
+  }
+}
