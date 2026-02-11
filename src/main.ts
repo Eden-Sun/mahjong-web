@@ -1,11 +1,13 @@
 import './style.css'
 import './tile.css'
 import './styles/discard-timeline.css'
+import './styles/layout.css'
+import './styles/mobile-optimized.css'
 import { initWasm, GameEngine } from './wasm'
 import { GameState, createInitialGameState, sortHand } from './gameState'
 import { GameController } from './gameController'
 import { renderHandHTML, renderMeldsHTML } from './tileRenderer'
-import { renderDiscardTimeline } from './components/DiscardTimeline'
+import { renderDiscardTimeline, resetDiscardAnimations } from './components/DiscardTimeline'
 import { initChowSelector, showChowSelector } from './components/ChowSelector'
 import { getChowOptions } from './actionChecker'
 
@@ -144,6 +146,9 @@ function startGame() {
 
   // 重置遊戲狀態
   gameState = createInitialGameState()
+  
+  // 重置捨牌動畫追蹤
+  resetDiscardAnimations()
 
   // 給每個玩家初始 16 張牌
   for (let playerIdx = 0; playerIdx < 4; playerIdx++) {
@@ -175,7 +180,41 @@ function startGame() {
   }, 500)
 }
 
+let renderCount = 0
+let renderPending = false
+let lastDiscardPoolLength = 0
+
 function showGameBoard() {
+  renderCount++
+  
+  // 檢查是否有新的捨牌
+  const currentDiscardPoolLength = gameState.discardPool.length
+  const hasNewDiscard = currentDiscardPoolLength > lastDiscardPoolLength
+  
+  console.log(`🎨 呼叫 showGameBoard (第 ${renderCount} 次)`, {
+    捨牌池長度: currentDiscardPoolLength,
+    上次長度: lastDiscardPoolLength,
+    有新捨牌: hasNewDiscard
+  })
+  
+  // 如果已經有待處理的渲染，且沒有新捨牌，跳過
+  if (renderPending && !hasNewDiscard) {
+    console.log(`⏭️  跳過渲染（已有待處理的渲染）`)
+    return
+  }
+  
+  renderPending = true
+  
+  // 使用 requestAnimationFrame 確保每幀只渲染一次
+  requestAnimationFrame(() => {
+    console.log(`✅ 執行渲染`)
+    lastDiscardPoolLength = gameState.discardPool.length
+    renderGameBoardNow()
+    renderPending = false
+  })
+}
+
+function renderGameBoardNow() {
   // 其他 3 個玩家的區域（上、左、右）
   const aiPlayers = gameState.players.filter((_, idx) => idx !== 0)
   const currentPlayer = gameState.players[gameState.currentPlayerIdx]
@@ -190,7 +229,8 @@ function showGameBoard() {
   // 获取可用动作
   let availableActions: string[] = []
   if (hasResponseRight && gameState.lastDiscardedTile && gameState.lastDiscardPlayer !== null) {
-    const isNextPlayer = (gameState.lastDiscardPlayer + 1) % 4 === 0
+    // 逆時針：檢查玩家 0 是否是打牌者的下一家（只有下一家才能吃）
+    const isNextPlayer = (gameState.lastDiscardPlayer + 3) % 4 === 0
     availableActions = gameController?.getAvailableActions(0, gameState.lastDiscardedTile, isNextPlayer) || []
   }
   
@@ -203,40 +243,47 @@ function showGameBoard() {
   let highlightTile: string | null = null
   let highlightType: 'chow' | 'pong' | null = null
   
+  console.log('🔍 高亮檢查:', { 
+    hasResponseRight, 
+    lastDiscardedTile: gameState.lastDiscardedTile,
+    availableActions,
+    discardPoolLength: gameState.discardPool.length,
+    currentTiles: gameState.discardPool.filter(d => d.isCurrentTile).map(d => d.tile)
+  })
+  
   if (hasResponseRight && gameState.lastDiscardedTile) {
     highlightTile = gameState.lastDiscardedTile
     if (availableActions.includes('chow')) {
       highlightType = 'chow'
+      console.log('🔴 高亮吃牌:', highlightTile)
     } else if (availableActions.includes('pong')) {
       highlightType = 'pong'
+      console.log('🟠 高亮碰牌:', highlightTile)
     }
   }
 
   app.innerHTML = `
-    <div style="width: 100%; height: 100vh; background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 20px; font-family: Arial, sans-serif; display: flex; flex-direction: column;">
+    <div id="game-container">
       
-      <!-- 頂部：AI 玩家 1 和 2 -->
-      <div style="display: flex; justify-content: space-between; gap: 20px; margin-bottom: 20px; flex: 0;">
+      <!-- 頂部：三個 AI 玩家 -->
+      <div class="top-players">
         ${renderAIPlayer(aiPlayers[0] || gameState.players[1], gameState.currentPlayerIdx === 1)}
         ${renderAIPlayer(aiPlayers[1] || gameState.players[2], gameState.currentPlayerIdx === 2)}
+        ${renderAIPlayer(aiPlayers[2] || gameState.players[3], gameState.currentPlayerIdx === 3)}
       </div>
 
-      <!-- 中間：牌桌 + AI 玩家 3 -->
-      <div style="display: flex; gap: 20px; flex: 1; justify-content: center; align-items: center;">
-        <!-- AI 玩家 3（左） -->
-        <div style="flex-direction: column; display: flex; align-items: center;">
-          ${renderAIPlayer(aiPlayers[2] || gameState.players[3], gameState.currentPlayerIdx === 3, 'vertical')}
-        </div>
-
+      <!-- 中間：牌桌 -->
+      <div class="middle-area">
         <!-- 中央牌桌 -->
-        <div style="background: rgba(0, 0, 0, 0.3); border: 3px solid #FFD700; border-radius: 12px; padding: 20px; text-align: center; color: white; min-width: 800px; max-width: 1000px;">
-          <h2 style="margin: 0 0 15px 0; color: #FFD700;">🀄 牌桌</h2>
+        <div class="game-board">
+          <h2 class="game-board-title">🀄 牌桌</h2>
           
-          <!-- 游戏状态 -->
-          <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-            <p style="margin: 5px 0; font-size: 1.1em;">🃏 牌堆剩餘: <strong>${gameState.tileCount}</strong> 張</p>
-            ${gameState.lastDiscardedTile ? `<p style="margin: 5px 0; font-size: 1.1em;">🎯 最後出牌: <strong>${tileDisplay[gameState.lastDiscardedTile]}</strong></p>` : ''}
-          </div>
+          <div class="game-board-content">
+            <!-- 游戏状态 -->
+            <div class="game-status">
+              <p style="margin: 5px 0; font-size: 1.1em;">🃏 牌堆剩餘: <strong>${gameState.tileCount}</strong> 張</p>
+              ${gameState.lastDiscardedTile ? `<p style="margin: 5px 0; font-size: 1.1em;">🎯 最後出牌: <strong>${tileDisplay[gameState.lastDiscardedTile]}</strong></p>` : ''}
+            </div>
           
           <!-- 捨牌池時間線 -->
           ${renderDiscardTimeline({ 
@@ -246,30 +293,28 @@ function showGameBoard() {
           })}
           
           <!-- 状态提示 -->
-          <div style="background: rgba(255, 255, 255, 0.15); padding: 10px; border-radius: 6px; margin: 15px 0; min-height: 40px;">
+          <div class="status-message" style="background: rgba(255, 255, 255, 0.15); padding: 10px; border-radius: 6px; margin: 15px 0; min-height: 40px;">
             ${getStatusMessage(canDiscard, hasResponseRight, gameState.gamePhase, gameState.currentPlayerIdx, canWinAfterDraw, winResultAfterDraw)}
           </div>
           
-          <button onclick="showMenu()" style="
-            padding: 10px 20px;
-            background: #f44336;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-          ">
-            🏠 返回菜單
-          </button>
+            <button onclick="showMenu()" style="
+              padding: 10px 20px;
+              background: #f44336;
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-weight: bold;
+            ">
+              🏠 返回菜單
+            </button>
+          </div>
         </div>
-
-        <!-- 右側預留（未來可加） -->
-        <div style="width: 100px;"></div>
       </div>
 
       <!-- 底部：玩家手牌 -->
-      <div style="background: rgba(255, 255, 255, 0.95); border-radius: 12px; padding: 20px; margin-top: 20px; flex: 0;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <div class="player-hand-container">
+        <div class="player-hand-header">
           <h3 style="margin: 0; color: #333;">
             你的手牌（${humanPlayer.hand.length} 張）
             ${humanPlayer.melds.length > 0 ? ` + ${humanPlayer.melds.length} 組` : ''}
@@ -288,14 +333,14 @@ function showGameBoard() {
         
         <!-- 自摸和牌按钮 -->
         ${canWinAfterDraw && winResultAfterDraw ? `
-          <div style="margin-bottom: 15px; padding: 15px; background: #e8f5e9; border: 3px solid #4CAF50; border-radius: 8px; animation: pulse 1.5s ease-in-out infinite;">
-            <strong style="color: #2e7d32; font-size: 1.2em;">🏆 可以和牌！</strong>
-            <p style="color: #2e7d32; margin: 8px 0;">番數：${winResultAfterDraw.fans} 番 | 牌型：${winResultAfterDraw.pattern}</p>
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-              <button onclick="playerWin()" style="padding: 12px 24px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1.1em; flex: 1;">
+          <div class="response-panel response-panel--win" style="margin-bottom: 15px; padding: 15px; background: #e8f5e9; border: 3px solid #4CAF50; border-radius: 8px; animation: pulse 1.5s ease-in-out infinite;">
+            <strong class="response-title" style="color: #2e7d32; font-size: 1.2em;">🏆 可以和牌！</strong>
+            <p class="response-subtitle" style="color: #2e7d32; margin: 8px 0;">番數：${winResultAfterDraw.fans} 番 | 牌型：${winResultAfterDraw.pattern}</p>
+            <div class="response-actions response-actions--duo" style="display: flex; gap: 10px; margin-top: 10px;">
+              <button class="response-button response-button--win" type="button" onclick="playerWin()" style="padding: 12px 24px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1.1em; flex: 1;">
                 🎉 和牌
               </button>
-              <button onclick="playerPass()" style="padding: 12px 24px; background: #9e9e9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+              <button class="response-button response-button--pass" type="button" onclick="playerPass()" style="padding: 12px 24px; background: #9e9e9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
                 ⏭️ 過
               </button>
             </div>
@@ -310,32 +355,22 @@ function showGameBoard() {
         
         <!-- 响应按钮 -->
         ${hasResponseRight ? `
-          <div style="margin-bottom: 15px; padding: 15px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 6px;">
-            <strong style="color: #856404;">⚡ 你可以響應！</strong>
-            <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
-              ${availableActions.includes('win') ? '<button onclick="playerResponse(\'win\')" style="padding: 8px 16px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🎉 和牌</button>' : ''}
-              ${availableActions.includes('kong') ? '<button onclick="playerResponse(\'kong\')" style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 槓</button>' : ''}
-              ${availableActions.includes('pong') ? '<button onclick="playerResponse(\'pong\')" style="padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🤝 碰</button>' : ''}
-              ${availableActions.includes('chow') ? '<button onclick="playerResponse(\'chow\')" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">➡️ 吃</button>' : ''}
-              <button onclick="playerResponse('pass')" style="padding: 8px 16px; background: #9e9e9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">⏭️ 過</button>
+          <div class="response-panel response-panel--notice" style="margin-bottom: 15px; padding: 15px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 6px;">
+            <strong class="response-title" style="color: #856404;">⚡ 你可以響應！</strong>
+            <div class="response-actions response-actions--multi" style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+              ${availableActions.includes('win') ? '<button class="response-button response-button--win" type="button" onclick="playerResponse(\\\'win\\\')" style="padding: 8px 16px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🎉 和牌</button>' : ''}
+              ${availableActions.includes('kong') ? '<button class="response-button response-button--kong" type="button" onclick="playerResponse(\\\'kong\\\')" style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 槓</button>' : ''}
+              ${availableActions.includes('pong') ? '<button class="response-button response-button--pong" type="button" onclick="playerResponse(\\\'pong\\\')" style="padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🤝 碰</button>' : ''}
+              ${availableActions.includes('chow') ? '<button class="response-button response-button--chow" type="button" onclick="playerResponse(\\\'chow\\\')" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">➡️ 吃</button>' : ''}
+              <button class="response-button response-button--pass" type="button" onclick="playerResponse('pass')" style="padding: 8px 16px; background: #9e9e9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">⏭️ 過</button>
             </div>
           </div>
         ` : ''}
         
         <!-- 手牌 -->
-        <div style="display: flex; flex-wrap: wrap; gap: 8px; min-height: 80px; align-content: flex-start;">
+        <div class="player-hand-tiles">
           ${renderHandHTML(humanPlayer.hand, drawnTile, canDiscard)}
         </div>
-        
-        <!-- 弃牌堆 -->
-        ${humanPlayer.discardPile.length > 0 ? `
-          <div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 6px;">
-            <strong style="color: #666;">已出牌：</strong>
-            <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px;">
-              ${humanPlayer.discardPile.slice(-12).map(t => `<span style="background: #e0e0e0; padding: 4px 8px; border-radius: 4px; font-size: 0.9em;">${tileDisplay[t] || t}</span>`).join('')}
-            </div>
-          </div>
-        ` : ''}
       </div>
     </div>
   `
@@ -381,19 +416,19 @@ function renderAIPlayer(player: any, isCurrentPlayer: boolean = false, orientati
   
   if (orientation === 'vertical') {
     return `
-      <div style="background: rgba(255, 255, 255, 0.1); border: ${borderWidth} solid ${borderColor}; border-radius: 8px; padding: 15px; color: white; text-align: center; writing-mode: vertical-rl; text-orientation: mixed;">
+      <div class="ai-player-container" style="background: rgba(255, 255, 255, 0.1); border: ${borderWidth} solid ${borderColor}; border-radius: 8px; padding: 15px; color: white; text-align: center; writing-mode: vertical-rl; text-orientation: mixed;">
         <p style="margin: 0 0 10px 0; font-weight: bold;">${player.name} ${isCurrentPlayer ? '👈' : ''}</p>
-        <p style="margin: 0 0 10px 0; font-size: 0.9em;">🃏 ${player.hand.length} 張</p>
+        <p class="ai-player-hand-count" style="margin: 0 0 10px 0; font-size: 0.9em;">🃏 ${player.hand.length} 張</p>
         ${player.melds && player.melds.length > 0 ? `<p style="margin: 0 0 10px 0; font-size: 0.9em;">📦 ${player.melds.length} 組</p>` : ''}
       </div>
     `
   }
 
   return `
-    <div style="background: rgba(255, 255, 255, 0.1); border: ${borderWidth} solid ${borderColor}; border-radius: 8px; padding: 15px; color: white; flex: 1; min-width: 200px;">
+    <div class="ai-player-container" style="background: rgba(255, 255, 255, 0.1); border: ${borderWidth} solid ${borderColor}; border-radius: 8px; padding: 15px; color: white; flex: 1; min-width: 200px;">
       <h4 style="margin: 0 0 10px 0; color: ${isCurrentPlayer ? '#4CAF50' : '#FFD700'};">${player.name} ${isCurrentPlayer ? '👈' : ''}</h4>
       <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
-        <span>🃏 ${player.hand.length} 張</span>
+        <span class="ai-player-hand-count">🃏 ${player.hand.length} 張</span>
         ${player.melds && player.melds.length > 0 ? `<span>📦 ${player.melds.length} 組</span>` : ''}
         <span>💰 ${player.score}</span>
       </div>
@@ -418,6 +453,14 @@ async function playerResponse(action: string) {
     return
   }
   
+  // 如果是「過」，先觸發當下牌滑至側邊動畫（立即執行）
+  if (action === 'pass') {
+    const centerHighlight = document.querySelector('.discard-highlight-center')
+    if (centerHighlight && !centerHighlight.classList.contains('animate-to-side')) {
+      centerHighlight.classList.add('animate-to-side', 'manual')
+    }
+  }
+  
   // 如果是吃牌，需要选择组合
   if (action === 'chow' && gameState.lastDiscardedTile) {
     const humanPlayer = gameState.players[0]
@@ -436,6 +479,10 @@ async function playerResponse(action: string) {
         gameController.playerResponse('chow', selectedTiles)
       } else {
         // 玩家選擇過
+        const centerHighlight = document.querySelector('.discard-highlight-center')
+        if (centerHighlight && !centerHighlight.classList.contains('animate-to-side')) {
+          centerHighlight.classList.add('animate-to-side', 'manual')
+        }
         gameController.playerResponse('pass')
       }
     } else {

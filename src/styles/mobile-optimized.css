@@ -30,7 +30,7 @@
     padding: 6px !important;
     height: 100vh !important;
     max-height: 100vh !important;
-    min-height: 100vh !important; /* 防止縮小 */
+    /* 移除 min-height，讓內容自然分配避免溢出 */
     display: flex !important;
     flex-direction: column !important;
     gap: 6px !important;
@@ -177,18 +177,17 @@
 
   /* ========== 手牌區域 - 嚴格固定在底部 ========== */
   .player-hand-container {
-    flex: 0 0 220px !important; /* 固定高度 220px，確保始終可見 */
+    flex: 0 0 auto !important; /* 固定不增長 */
     padding: 10px !important;
-    max-height: 40vh !important; /* 最大佔用40%視口 */
-    min-height: 220px !important; /* 確保最小可見高度 */
+    max-height: 35vh !important; /* 最大佔用35%視口 */
+    min-height: 180px !important; /* 確保最小可見高度 */
     display: flex !important;
     flex-direction: column !important;
     gap: 8px !important;
-    overflow: visible !important; /* 改成 visible，確保不裁切內容 */
+    overflow: hidden !important; /* 容器不溢出 */
     position: relative;
     z-index: 100 !important; /* 確保在最上層 */
     background: rgba(255, 255, 255, 0.95) !important; /* 確保背景可見 */
-    pointer-events: auto !important; /* 確保可點擊 */
   }
   
   .player-hand-header {
