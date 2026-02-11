@@ -68,12 +68,12 @@
 
   /* ========== 中間遊戲區域 - 彈性增長，可滾動 ========== */
   .middle-area {
-    flex: 1 1 0 !important; /* 增長以填充可用空間 */
+    flex: 1 1 auto !important; /* 增長以填充可用空間 */
     display: flex;
     flex-direction: column;
     overflow: hidden !important;
     min-height: 0 !important; /* 關鍵：允許縮小 */
-    max-height: 100% !important; /* 不超出父容器 */
+    max-height: calc(100vh - 80px - 200px - 18px) !important; /* 限制最大高度：視口 - 頂部 - 手牌 - gap */
   }
   
   .left-player {
@@ -177,10 +177,10 @@
 
   /* ========== 手牌區域 - 嚴格固定在底部 ========== */
   .player-hand-container {
-    flex: 0 0 auto !important; /* 固定不增長 */
+    flex: 0 0 200px !important; /* 固定高度 200px */
     padding: 10px !important;
     max-height: 35vh !important; /* 最大佔用35%視口 */
-    min-height: 180px !important; /* 確保最小可見高度 */
+    min-height: 200px !important; /* 確保最小可見高度 */
     display: flex !important;
     flex-direction: column !important;
     gap: 8px !important;
@@ -297,7 +297,7 @@
     gap: 5px !important;
     height: 100vh !important;
     max-height: 100vh !important;
-    min-height: 100vh !important;
+    /* 移除 min-height，避免溢出 */
   }
   
   .top-players {
@@ -313,8 +313,9 @@
   }
   
   .middle-area {
-    flex: 1 1 0 !important;
+    flex: 1 1 auto !important;
     min-height: 0 !important;
+    max-height: calc(100vh - 70px - 160px - 15px) !important; /* 視口 - 頂部 - 手牌 - gap */
   }
   
   .game-board {
@@ -350,8 +351,8 @@
   .player-hand-container {
     padding: 8px !important;
     max-height: 38vh !important; /* 減少到38% */
-    min-height: 140px !important;
-    flex: 0 0 auto !important;
+    min-height: 160px !important;
+    flex: 0 0 160px !important; /* 固定高度 */
   }
   
   .hand-tile-button,
@@ -387,7 +388,7 @@
     gap: 4px !important;
     height: 100vh !important;
     max-height: 100vh !important;
-    min-height: 100vh !important;
+    /* 移除 min-height，避免溢出 */
   }
   
   .top-players {
@@ -396,8 +397,9 @@
   }
   
   .middle-area {
-    flex: 1 1 0 !important;
+    flex: 1 1 auto !important;
     min-height: 0 !important;
+    max-height: calc(100vh - 70px - 140px - 12px) !important; /* 視口 - 頂部 - 手牌 - gap */
   }
   
   .game-board {
@@ -412,8 +414,8 @@
   
   .player-hand-container {
     max-height: 50vh !important; /* 橫屏時增加到50% */
-    min-height: 120px !important;
-    flex: 0 0 auto !important;
+    min-height: 140px !important;
+    flex: 0 0 140px !important; /* 固定高度 */
   }
   
   .discard-timeline-container {
