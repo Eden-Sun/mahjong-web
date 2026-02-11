@@ -211,6 +211,10 @@
     transform: translateZ(0);
     will-change: scroll-position;
     overscroll-behavior: contain;
+    /* 確保子元素可點擊 */
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 1;
   }
 
   /* ========== 手牌按鈕 ========== */
@@ -422,4 +426,54 @@
     min-height: 80px !important;
     max-height: 120px !important;
   }
+}
+
+  /* 手牌按鈕額外確保可點擊 */
+  button.hand-tile-button {
+    pointer-events: auto !important;
+    -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+    position: relative;
+    z-index: 10;
+  }
+  
+  button.hand-tile-button:not(:disabled) {
+    cursor: pointer !important;
+  }
+  
+  button.hand-tile-button:not(:disabled):active {
+    transform: scale(0.95);
+  }
+/* 修復手牌按鈕點擊問題 */
+
+/* 確保手牌按鈕本身可點擊，即使內部的 tile 元素是 disabled */
+button.hand-tile-button {
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+}
+
+/* 按鈕內部的 tile 元素不應該阻擋點擊事件 */
+button.hand-tile-button .tile {
+  pointer-events: none !important;
+}
+
+/* tile-content 也不應該阻擋 */
+button.hand-tile-button .tile-content {
+  pointer-events: none !important;
+}
+
+/* 確保 disabled 按鈕也顯示為不可點擊 */
+button.hand-tile-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 非 disabled 的按鈕應該可點擊 */
+button.hand-tile-button:not(:disabled) {
+  cursor: pointer !important;
+}
+
+/* 點擊反饋 */
+button.hand-tile-button:not(:disabled):active {
+  transform: scale(0.95);
+  transition: transform 0.1s;
 }
