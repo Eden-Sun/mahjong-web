@@ -282,3 +282,58 @@ console.log('手牌區域位置:', {
 - [ ] 優化動畫性能 (使用 CSS 變數)
 - [ ] 支援更多螢幕方向鎖定
 - [ ] 添加無障礙功能 (ARIA labels)
+
+## 更新 (2026-02-11 11:30)
+
+### 🔧 關鍵修復：強制限制牌桌高度
+
+**問題：** 即使設定了 flex: 0 0 auto，手牌區域仍被推出螢幕外。
+
+**根本原因：**
+1. `#game-container` 的 `min-height: 100vh` 強制容器撐滿視口
+2. `.middle-area` 的 `flex: 1 1 0` 會盡可能增長，佔用所有剩餘空間
+3. 即使手牌設定 `flex: 0 0 auto`，因為牌桌已佔滿空間，手牌被推出視口
+
+**解決方案：**
+1. **移除 `min-height: 100vh`** — 讓內容自然分配，避免強制撐滿
+2. **限制牌桌最大高度** — 使用 `calc(100vh - 頂部 - 手牌 - gap)`
+3. **手牌使用固定 flex-basis** — 從 `flex: 0 0 auto` 改成 `flex: 0 0 200px`
+
+**修改細節：**
+
+```css
+/* 標準模式 (<768px) */
+.middle-area {
+  max-height: calc(100vh - 80px - 200px - 18px) !important;
+}
+.player-hand-container {
+  flex: 0 0 200px !important;
+  min-height: 200px !important;
+}
+
+/* 小手機 (<480px) */
+.middle-area {
+  max-height: calc(100vh - 70px - 160px - 15px) !important;
+}
+.player-hand-container {
+  flex: 0 0 160px !important;
+  min-height: 160px !important;
+}
+
+/* 橫屏 (<812px landscape) */
+.middle-area {
+  max-height: calc(100vh - 70px - 140px - 12px) !important;
+}
+.player-hand-container {
+  flex: 0 0 140px !important;
+  min-height: 140px !important;
+}
+```
+
+**效果：**
+- ✅ 手牌區域始終固定在螢幕底部
+- ✅ 牌桌區域不會無限增長
+- ✅ 牌桌內容過多時可滾動
+- ✅ 三種模式（標準/小手機/橫屏）都正常工作
+
+**提交：** a096462
