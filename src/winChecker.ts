@@ -128,43 +128,59 @@ export function canFormWinPattern(
 // 聽牌類型判斷
 // ═══════════════════════════════════════
 
+/**
+ * 判斷聽牌類型
+ * @param preWinHand 胡牌前的手牌（不含 winTile）
+ * @param melds 已有的面子
+ * @param winTile 胡的那張牌
+ *
+ * 核心邏輯：窮舉所有 34 種牌，看有幾種能完成胡牌。
+ * 只有 1 種 = 獨聽（邊/嵌/單騎）；超過 1 種 = 雙面。
+ */
 function detectWaitType(
-  hand: string[],
+  preWinHand: string[],
   melds: Meld[],
   winTile: string
 ): WaitType {
-  // 全求：手牌只剩1張（其餘都吃碰槓掉）
-  if (hand.length === 1) return 'full-claim'
-
   const needMelds = 5 - melds.length
-  // 排除 winTile 後的手牌
-  const handWithout = [...hand]
-  const idx = handWithout.indexOf(winTile)
-  if (idx !== -1) handWithout.splice(idx, 1)
 
-  // 嘗試以 winTile 完成眼牌（單騎）
-  const isPairWait = handWithout.filter(t => t === winTile).length === 1
-    && canFormWinPattern(handWithout.filter(t => t !== winTile), needMelds, true)
-  if (isPairWait) return 'pair'
+  // 全求：手牌只剩 1 張 且 melds 已滿 4 組
+  if (preWinHand.length === 1 && melds.length >= 4) return 'full-claim'
 
-  // 嘗試判斷順子聽牌類型
+  // 窮舉所有可能的胡牌
+  const ALL_TILES = [
+    ...Array.from({ length: 9 }, (_, i) => `${i + 1}m`),
+    ...Array.from({ length: 9 }, (_, i) => `${i + 1}s`),
+    ...Array.from({ length: 9 }, (_, i) => `${i + 1}p`),
+    'E', 'S', 'W', 'N', 'B', 'F', 'Z',
+  ]
+  const winningTiles = ALL_TILES.filter(t =>
+    canFormWinPattern([...preWinHand, t], needMelds)
+  )
+
+  // 超過 1 種牌可胡 → 雙面（不算獨聽）
+  if (winningTiles.length > 1) return 'two-sided'
+
+  // ── 只有 1 種可胡 → 獨聽，判斷子類型 ──
+
+  // 單騎：手牌剩 1 張等配對（眼）
+  if (preWinHand.length === 1) return 'pair'
+
   if (winTile.match(/^[1-9][msp]$/)) {
     const suit = winTile[1]
     const num = parseInt(winTile[0])
 
-    // 邊張：1-2聽3（3完成順子） 或 8-9聽7
-    const isEdge = (num === 3 && handWithout.includes(`1${suit}`) && handWithout.includes(`2${suit}`)) ||
-                   (num === 7 && handWithout.includes(`8${suit}`) && handWithout.includes(`9${suit}`))
-    if (isEdge) return 'edge'
+    // 嵌張（中洞）：x-(x+2) 聽 x+1
+    if (preWinHand.includes(`${num - 1}${suit}`) &&
+        preWinHand.includes(`${num + 1}${suit}`)) return 'closed'
 
-    // 嵌張：中洞 x-?-z 聽中間牌
-    const isClosed = num >= 2 && num <= 8 &&
-      handWithout.includes(`${num - 1}${suit}`) &&
-      handWithout.includes(`${num + 1}${suit}`)
-    if (isClosed) return 'closed'
+    // 邊張：1-2 聽 3，或 8-9 聽 7
+    if ((num === 3 && preWinHand.includes(`1${suit}`) && preWinHand.includes(`2${suit}`)) ||
+        (num === 7 && preWinHand.includes(`8${suit}`) && preWinHand.includes(`9${suit}`))) return 'edge'
   }
 
-  return 'two-sided'
+  // 字牌或其他單騎
+  return 'pair'
 }
 
 // ═══════════════════════════════════════
@@ -202,12 +218,14 @@ export function calculateFans(
   // ── 手牌暗刻數（不含 meld 碰牌，含暗槓）
   const concealedTriplets = countConcealedTriplets(hand, melds)
 
-  // ── 聽牌類型
-  const waitType = winTile ? detectWaitType(
-    hand.filter(t => t !== winTile).concat(hand.includes(winTile) ? [winTile] : []),
-    melds,
-    winTile
-  ) : 'two-sided'
+  // ── 聽牌類型（preWinHand = fullHand 移除一張 winTile）
+  let waitType: WaitType = 'two-sided'
+  if (winTile) {
+    const preWinHand = [...hand]
+    const rmIdx = preWinHand.indexOf(winTile)
+    if (rmIdx !== -1) preWinHand.splice(rmIdx, 1)
+    waitType = detectWaitType(preWinHand, melds, winTile)
+  }
 
   // ─────────────────────────────────────
   // 1. 特殊大牌型（最高優先，互斥）
