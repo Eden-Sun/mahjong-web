@@ -4,7 +4,7 @@ import './styles/discard-timeline.css'
 import './styles/layout.css'
 import './styles/mobile-optimized.css'
 import './debug' // 🐛 Mobile Debug Tool (僅 dev 環境)
-import { initWasm, GameEngine } from './wasm'
+import { initWasm, GameEngine, lastWasmError } from './wasm'
 import { GameState, createInitialGameState, sortHand } from './gameState'
 import { GameController } from './gameController'
 import { renderHandHTML, renderMeldsHTML } from './tileRenderer'
@@ -60,6 +60,7 @@ async function init() {
     app.innerHTML = `
       <div style="text-align: center; color: #d32f2f; padding: 40px;">
         <p>❌ 無法加載 WASM 遊戲引擎</p>
+        <p style="color: #d32f2f; margin-top: 10px; font-family: monospace; font-size: 0.9em;">${lastWasmError}</p>
         <p style="color: #666; margin-top: 10px;">請檢查瀏覽器控制台的錯誤信息</p>
       </div>
     `
