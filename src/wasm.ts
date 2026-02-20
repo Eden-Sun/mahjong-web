@@ -14,8 +14,8 @@ export async function initWasm(): Promise<boolean> {
 
     console.log('✓ 正在加載 WASM...');
 
-    // 加載 WASM 二進位
-    const response = await fetch('/game.wasm');
+    // 加載 WASM 二進位（使用 Vite base URL，相容 GitHub Pages）
+    const response = await fetch(`${import.meta.env.BASE_URL}game.wasm`);
     if (!response.ok) {
       console.error(`無法加載 WASM，狀態碼: ${response.status}`);
       return false;
