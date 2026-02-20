@@ -453,8 +453,8 @@ function renderGameBoardNow() {
   // 获取可用动作
   let availableActions: string[] = []
   if (hasResponseRight && gameState.lastDiscardedTile && gameState.lastDiscardPlayer !== null) {
-    // 逆時針：檢查玩家 0 是否是打牌者的下一家（只有下一家才能吃）
-    const isNextPlayer = (gameState.lastDiscardPlayer + 3) % 4 === 0
+    // 順序：0→1→2→3→0，玩家 0 是玩家 3 的下家，player 3 出牌才能吃
+    const isNextPlayer = (gameState.lastDiscardPlayer + 1) % 4 === 0
     availableActions = gameController?.getAvailableActions(0, gameState.lastDiscardedTile, isNextPlayer) || []
   }
   
