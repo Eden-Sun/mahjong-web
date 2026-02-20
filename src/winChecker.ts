@@ -1,235 +1,568 @@
-// 胡牌检查算法（改进版）
+// 胡牌检查算法 + 台灣麻將完整台數計算
 
 import { Meld } from './gameState'
 
-/**
- * 胡牌结果
- */
+// ═══════════════════════════════════════
+// Types
+// ═══════════════════════════════════════
+
 export interface WinResult {
   canWin: boolean
   winType: 'self-draw' | 'win-from-others' | null
   fans: number
   pattern: string
+  details: string[]
 }
 
-/**
- * 检查是否可以胡牌
- * @param hand 手牌
- * @param melds 已有的牌组（碰杠吃）
- * @param drawnTile 新摸的牌（自摸时使用）
- * @param discardedTile 别人出的牌（点和时使用）
- */
+export interface WinContext {
+  isDealer?: boolean       // 莊家
+  seatWind?: string        // 座位風 E/S/W/N
+  roundWind?: string       // 圈風 E/S/W/N
+  isLastTile?: boolean     // 最後一張牌
+  isKongDraw?: boolean     // 槓上補牌
+  isRobKong?: boolean      // 搶槓
+}
+
+type WaitType = 'two-sided' | 'edge' | 'closed' | 'pair' | 'full-claim'
+
+const SUIT_TILES = ['m', 's', 'p']
+const HONOR_TILES = ['E', 'S', 'W', 'N', 'B', 'F', 'Z']
+const DRAGON_TILES = ['B', 'F', 'Z']  // 白/發/中
+const WIND_TILES = ['E', 'S', 'W', 'N']
+
+// ═══════════════════════════════════════
+// 主入口：checkWin
+// ═══════════════════════════════════════
+
 export function checkWin(
   hand: string[],
   melds: Meld[],
   drawnTile?: string,
-  discardedTile?: string
+  discardedTile?: string,
+  context?: WinContext
 ): WinResult {
-  // 确定胡牌类型
   let winType: 'self-draw' | 'win-from-others' | null = null
   let fullHand: string[] = []
-  
+  let winTile = ''
+
   if (drawnTile) {
-    // 自摸 - 新牌加入手牌
     winType = 'self-draw'
     fullHand = [...hand, drawnTile]
-    console.log(`🎯 檢查自摸：手牌 ${hand.length} 張 + 新牌 [${drawnTile}] = ${fullHand.length} 張`)
+    winTile = drawnTile
   } else if (discardedTile) {
-    // 点和 - 别人出的牌加入手牌
     winType = 'win-from-others'
     fullHand = [...hand, discardedTile]
-    console.log(`🎯 檢查點胡：手牌 ${hand.length} 張 + 打出牌 [${discardedTile}] = ${fullHand.length} 張`)
+    winTile = discardedTile
   } else {
-    // 只检查当前手牌
     fullHand = [...hand]
-    console.log(`🎯 檢查當前手牌：${fullHand.length} 張`)
   }
-  
-  // 计算已有的面子数
+
   const meldCount = melds.length
-  
-  // 標準麻將：4 組面子 + 1 對眼
-  // 不驗證總牌數，只驗證結構（能否組成需要的面子）
   const needMelds = 5 - meldCount
-  
-  console.log(`📊 已有 ${meldCount} 組面子，還需要 ${needMelds} 組`)
-  
-  // 检查是否能组成胡牌
+
   const canWin = canFormWinPattern(fullHand, needMelds)
-  
+
   if (!canWin) {
-    return { canWin: false, winType: null, fans: 0, pattern: '' }
+    return { canWin: false, winType: null, fans: 0, pattern: '', details: [] }
   }
-  
-  // 计算番数和牌型
-  const { fans, pattern } = calculateFans(fullHand, melds, winType)
-  
-  return { canWin: true, winType, fans, pattern }
+
+  const { fans, pattern, details } = calculateFans(fullHand, melds, winType, winTile, context)
+
+  return { canWin: true, winType, fans, pattern, details }
 }
 
-/**
- * 递归检查能否组成胡牌
- * @param hand 剩余手牌
- * @param needMelds 还需要的面子数
- * @param hasEye 是否已经有眼牌
- */
+// ═══════════════════════════════════════
+// 胡牌結構判斷（遞迴）
+// ═══════════════════════════════════════
+
 export function canFormWinPattern(
   hand: string[],
   needMelds: number,
   hasEye: boolean = false
 ): boolean {
-  // 终止条件：手牌用完且面子数正确
-  if (hand.length === 0) {
-    return needMelds === 0 && hasEye
-  }
-  
-  // 如果只剩 2 张牌，检查是否是对子（眼牌）
-  if (hand.length === 2 && needMelds === 0 && !hasEye) {
-    return hand[0] === hand[1]
-  }
-  
-  // 如果牌数不足以组成剩余面子
-  if (hand.length < needMelds * 3 + (hasEye ? 0 : 2)) {
-    return false
-  }
-  
-  // 排序手牌
+  if (hand.length === 0) return needMelds === 0 && hasEye
+  if (hand.length === 2 && needMelds === 0 && !hasEye) return hand[0] === hand[1]
+  if (hand.length < needMelds * 3 + (hasEye ? 0 : 2)) return false
+
   const sorted = [...hand].sort()
   const first = sorted[0]
-  
-  // 统计第一张牌的数量
   const firstCount = sorted.filter(t => t === first).length
-  
-  // 策略 1：尝试将第一张牌作为眼牌（对子）
+
+  // 眼牌
   if (!hasEye && firstCount >= 2) {
     const newHand = [...sorted]
-    // 移除 2 张作为眼牌
     newHand.splice(0, 2)
-    if (canFormWinPattern(newHand, needMelds, true)) {
-      return true
-    }
+    if (canFormWinPattern(newHand, needMelds, true)) return true
   }
-  
-  // 策略 2：尝试将第一张牌组成刻子（3 张相同）
+
+  // 刻子
   if (needMelds > 0 && firstCount >= 3) {
     const newHand = [...sorted]
-    // 移除 3 张作为刻子
     newHand.splice(0, 3)
-    if (canFormWinPattern(newHand, needMelds - 1, hasEye)) {
-      return true
-    }
+    if (canFormWinPattern(newHand, needMelds - 1, hasEye)) return true
   }
-  
-  // 策略 3：尝试将第一张牌组成顺子（3 张连续）
+
+  // 順子
   if (needMelds > 0 && first.match(/^[1-9][msp]$/)) {
     const suit = first[1]
     const num = parseInt(first[0])
-    
     if (num <= 7) {
-      const tile2 = `${num + 1}${suit}`
-      const tile3 = `${num + 2}${suit}`
-      
-      const idx2 = sorted.indexOf(tile2)
-      const idx3 = sorted.indexOf(tile3)
-      
-      if (idx2 !== -1 && idx3 !== -1) {
+      const t2 = `${num + 1}${suit}`
+      const t3 = `${num + 2}${suit}`
+      const i2 = sorted.indexOf(t2)
+      const i3 = sorted.indexOf(t3)
+      if (i2 !== -1 && i3 !== -1) {
         const newHand = [...sorted]
-        // 移除顺子的 3 张牌（从后往前删除，避免索引变化）
-        newHand.splice(idx3, 1)
-        newHand.splice(idx2, 1)
+        newHand.splice(i3, 1)
+        newHand.splice(i2, 1)
         newHand.splice(0, 1)
-        
-        if (canFormWinPattern(newHand, needMelds - 1, hasEye)) {
-          return true
-        }
+        if (canFormWinPattern(newHand, needMelds - 1, hasEye)) return true
       }
     }
   }
-  
-  // 如果第一张牌无法组成任何组合，返回 false
+
   return false
 }
 
-/**
- * 计算番数
- * @param hand 手牌
- * @param melds 牌组
- * @param winType 胡牌类型
- */
+// ═══════════════════════════════════════
+// 聽牌類型判斷
+// ═══════════════════════════════════════
+
+function detectWaitType(
+  hand: string[],
+  melds: Meld[],
+  winTile: string
+): WaitType {
+  // 全求：手牌只剩1張（其餘都吃碰槓掉）
+  if (hand.length === 1) return 'full-claim'
+
+  const needMelds = 5 - melds.length
+  // 排除 winTile 後的手牌
+  const handWithout = [...hand]
+  const idx = handWithout.indexOf(winTile)
+  if (idx !== -1) handWithout.splice(idx, 1)
+
+  // 嘗試以 winTile 完成眼牌（單騎）
+  const isPairWait = handWithout.filter(t => t === winTile).length === 1
+    && canFormWinPattern(handWithout.filter(t => t !== winTile), needMelds, true)
+  if (isPairWait) return 'pair'
+
+  // 嘗試判斷順子聽牌類型
+  if (winTile.match(/^[1-9][msp]$/)) {
+    const suit = winTile[1]
+    const num = parseInt(winTile[0])
+
+    // 邊張：1-2聽3（3完成順子） 或 8-9聽7
+    const isEdge = (num === 3 && handWithout.includes(`1${suit}`) && handWithout.includes(`2${suit}`)) ||
+                   (num === 7 && handWithout.includes(`8${suit}`) && handWithout.includes(`9${suit}`))
+    if (isEdge) return 'edge'
+
+    // 嵌張：中洞 x-?-z 聽中間牌
+    const isClosed = num >= 2 && num <= 8 &&
+      handWithout.includes(`${num - 1}${suit}`) &&
+      handWithout.includes(`${num + 1}${suit}`)
+    if (isClosed) return 'closed'
+  }
+
+  return 'two-sided'
+}
+
+// ═══════════════════════════════════════
+// 台數計算（核心）
+// ═══════════════════════════════════════
+
 export function calculateFans(
   hand: string[],
   melds: Meld[],
-  winType: 'self-draw' | 'win-from-others' | null
-): { fans: number; pattern: string } {
-  let fans = 1  // 基础番（平胡）
-  const patterns: string[] = ['平胡']
-  
-  // 自摸加番
-  if (winType === 'self-draw') {
-    fans += 1
-    patterns.push('自摸')
+  winType: 'self-draw' | 'win-from-others' | null,
+  winTile: string = '',
+  context: WinContext = {}
+): { fans: number; pattern: string; details: string[] } {
+  const details: string[] = []
+  let fans = 0
+
+  const {
+    isDealer = false,
+    seatWind = 'E',
+    roundWind = 'E',
+    isLastTile = false,
+    isKongDraw = false,
+    isRobKong = false,
+  } = context
+
+  const isSelfDraw = winType === 'self-draw'
+  const isConcealed = melds.length === 0  // 門清
+
+  // ── 全部牌（hand + melds展開）
+  const allTiles = [
+    ...hand,
+    ...melds.flatMap(m => m.tiles),
+  ]
+
+  // ── 手牌暗刻數（不含 meld 碰牌，含暗槓）
+  const concealedTriplets = countConcealedTriplets(hand, melds)
+
+  // ── 聽牌類型
+  const waitType = winTile ? detectWaitType(
+    hand.filter(t => t !== winTile).concat(hand.includes(winTile) ? [winTile] : []),
+    melds,
+    winTile
+  ) : 'two-sided'
+
+  // ─────────────────────────────────────
+  // 1. 特殊大牌型（最高優先，互斥）
+  // ─────────────────────────────────────
+
+  // 大四喜 16台
+  if (hasAllWindPongs(melds, hand)) {
+    fans += 16
+    details.push('大四喜 16台')
+    // 大四喜不另計個別風牌台
   }
-  
-  // 门清加番（没有吃碰杠）
-  if (melds.length === 0) {
-    fans += 1
-    patterns.push('門清')
+  // 大三元 8台
+  else if (hasAllDragonPongs(melds, hand)) {
+    fans += 8
+    details.push('大三元 8台')
+    // 大三元不另計箭牌台
   }
-  
-  // 检查暗刻数量
-  const tileCounts = new Map<string, number>()
-  for (const tile of hand) {
-    tileCounts.set(tile, (tileCounts.get(tile) || 0) + 1)
+  // 小四喜 8台
+  else if (hasSmallFourWinds(melds, hand)) {
+    fans += 8
+    details.push('小四喜 8台')
+    // 小四喜仍計圈風/門風
+    const windFans = calcWindFans(melds, hand, roundWind, seatWind, true)
+    fans += windFans.fans
+    details.push(...windFans.details)
   }
-  
-  let darkTriplets = 0
-  for (const count of tileCounts.values()) {
-    if (count >= 3) {
-      darkTriplets++
-    }
-  }
-  
-  // 三暗刻
-  if (darkTriplets >= 3) {
-    fans += 1
-    patterns.push('三暗刻')
-  }
-  
-  // 检查是否全是一种花色（清一色）
-  const suits = new Set<string>()
-  for (const tile of hand) {
-    const suit = tile[tile.length - 1]
-    if (['m', 'p', 's'].includes(suit)) {
-      suits.add(suit)
-    }
-  }
-  
-  if (suits.size === 1 && hand.every(t => ['m', 'p', 's'].includes(t[t.length - 1]))) {
-    fans += 3
-    patterns.push('清一色')
-  }
-  
-  // 检查是否全是字牌（字一色）
-  if (hand.every(t => ['E', 'S', 'W', 'N', 'B', 'F', 'Z'].includes(t[t.length - 1]))) {
+  // 小三元 4台
+  else if (hasSmallThreeDragons(melds, hand)) {
     fans += 4
-    patterns.push('字一色')
+    details.push('小三元 4台')
+    // 小三元不另計箭牌台
+    // 但仍計風牌台
+    const windFans = calcWindFans(melds, hand, roundWind, seatWind, false)
+    fans += windFans.fans
+    details.push(...windFans.details)
   }
-  
+  else {
+    // 一般：計風牌 + 箭牌
+    const windFans = calcWindFans(melds, hand, roundWind, seatWind, false)
+    fans += windFans.fans
+    details.push(...windFans.details)
+
+    const dragonFans = calcDragonFans(melds, hand)
+    fans += dragonFans.fans
+    details.push(...dragonFans.details)
+  }
+
+  // ─────────────────────────────────────
+  // 2. 顏色/花色台
+  // ─────────────────────────────────────
+
+  // 清一色 8台
+  if (isSingleSuitOnly(allTiles)) {
+    fans += 8
+    details.push('清一色 8台')
+  }
+  // 混一色 4台（清一色不疊加）
+  else if (isMixedOneSuit(allTiles)) {
+    fans += 4
+    details.push('混一色 4台')
+  }
+
+  // ─────────────────────────────────────
+  // 3. 刻子/暗刻台
+  // ─────────────────────────────────────
+
+  // 五暗刻 8台
+  if (concealedTriplets >= 5) {
+    fans += 8
+    details.push('五暗刻 8台')
+  }
+  // 四暗刻 5台
+  else if (concealedTriplets >= 4) {
+    fans += 5
+    details.push('四暗刻 5台')
+  }
+  // 三暗刻 2台
+  else if (concealedTriplets >= 3) {
+    fans += 2
+    details.push('三暗刻 2台')
+  }
+
+  // 碰碰胡 4台（無順子）
+  if (isAllPongs(melds, hand)) {
+    fans += 4
+    details.push('碰碰胡 4台')
+  }
+
+  // ─────────────────────────────────────
+  // 4. 門清/自摸台
+  // ─────────────────────────────────────
+
+  if (isConcealed && isSelfDraw) {
+    // 不求 3台（取代門清+自摸）
+    fans += 3
+    details.push('不求 3台')
+  } else {
+    if (isConcealed) {
+      fans += 1
+      details.push('門清 1台')
+    }
+    if (isSelfDraw) {
+      fans += 1
+      details.push('自摸 1台')
+    }
+  }
+
+  // ─────────────────────────────────────
+  // 5. 獨聽
+  // ─────────────────────────────────────
+
+  if (waitType === 'pair' || waitType === 'edge' || waitType === 'closed') {
+    fans += 1
+    const waitName = waitType === 'pair' ? '單騎' : waitType === 'edge' ? '邊張' : '嵌張'
+    details.push(`獨聽（${waitName}）1台`)
+  }
+
+  // ─────────────────────────────────────
+  // 6. 平胡 2台（嚴格條件）
+  // ─────────────────────────────────────
+
+  if (isPingHu(hand, melds, winType, waitType, allTiles)) {
+    fans += 2
+    details.push('平胡 2台')
+  }
+
+  // ─────────────────────────────────────
+  // 7. 特殊情境台
+  // ─────────────────────────────────────
+
+  if (isLastTile && isSelfDraw) {
+    fans += 1
+    details.push('海底撈月 1台')
+  } else if (isLastTile && !isSelfDraw) {
+    fans += 1
+    details.push('河底撈魚 1台')
+  }
+
+  if (isKongDraw) {
+    fans += 1
+    details.push('槓上開花 1台')
+  }
+
+  if (isRobKong) {
+    fans += 1
+    details.push('搶槓 1台')
+  }
+
+  // 莊家 1台
+  if (isDealer) {
+    fans += 1
+    details.push('莊家 1台')
+  }
+
+  // 最少 1台
+  if (fans === 0) {
+    fans = 1
+    details.push('平胡（基本）1台')
+  }
+
   return {
     fans,
-    pattern: patterns.join(' + '),
+    pattern: details.join(' + '),
+    details,
   }
 }
 
-/**
- * 检查自摸和牌（用于 AI）
- */
+// ═══════════════════════════════════════
+// 輔助函式
+// ═══════════════════════════════════════
+
+/** 手牌暗刻數（排除碰牌，含暗槓） */
+function countConcealedTriplets(hand: string[], melds: Meld[]): number {
+  // 暗槓算暗刻
+  const concealedKongs = melds.filter(m => m.type === 'kong' && m.isConcealed).length
+
+  // 手牌中的刻子
+  const counts = new Map<string, number>()
+  for (const t of hand) counts.set(t, (counts.get(t) || 0) + 1)
+  let handTriplets = 0
+  for (const c of counts.values()) if (c >= 3) handTriplets++
+
+  return handTriplets + concealedKongs
+}
+
+/** 所有面子都是刻子（碰碰胡） */
+function isAllPongs(melds: Meld[], hand: string[]): boolean {
+  // melds 中不能有 chow
+  if (melds.some(m => m.type === 'chow')) return false
+
+  // 手牌必須能組成純刻子（含眼）
+  return canFormAllPongsPattern(hand, 5 - melds.length)
+}
+
+function canFormAllPongsPattern(hand: string[], needMelds: number, hasEye = false): boolean {
+  if (hand.length === 0) return needMelds === 0 && hasEye
+  if (hand.length === 2 && needMelds === 0 && !hasEye) return hand[0] === hand[1]
+
+  const sorted = [...hand].sort()
+  const first = sorted[0]
+  const cnt = sorted.filter(t => t === first).length
+
+  if (!hasEye && cnt >= 2) {
+    const h2 = sorted.slice(2)
+    if (canFormAllPongsPattern(h2, needMelds, true)) return true
+  }
+  if (needMelds > 0 && cnt >= 3) {
+    const h2 = sorted.slice(3)
+    if (canFormAllPongsPattern(h2, needMelds - 1, hasEye)) return true
+  }
+  return false
+}
+
+/** 清一色：只有一種數牌 */
+function isSingleSuitOnly(tiles: string[]): boolean {
+  const suits = new Set(tiles.map(t => t[t.length - 1]))
+  if (suits.size !== 1) return false
+  const suit = [...suits][0]
+  return SUIT_TILES.includes(suit)
+}
+
+/** 混一色：一種數牌 + 字牌 */
+function isMixedOneSuit(tiles: string[]): boolean {
+  const suits = new Set(tiles.map(t => t[t.length - 1]).filter(s => SUIT_TILES.includes(s)))
+  const hasHonor = tiles.some(t => HONOR_TILES.includes(t[t.length - 1]))
+  return suits.size === 1 && hasHonor
+}
+
+/** 圈風/門風台 */
+function calcWindFans(
+  melds: Meld[], hand: string[],
+  roundWind: string, seatWind: string,
+  skipBigFourWinds: boolean
+): { fans: number; details: string[] } {
+  const details: string[] = []
+  let fans = 0
+
+  const allMelds = [...melds]
+  // 手牌暗刻也算
+  const handTriples = getHandTriplets(hand)
+  const pongTiles = [
+    ...allMelds.filter(m => m.type === 'pong' || m.type === 'kong').map(m => m.tiles[0]),
+    ...handTriples,
+  ]
+
+  for (const t of pongTiles) {
+    if (WIND_TILES.includes(t)) {
+      if (!skipBigFourWinds) {
+        if (t === roundWind) { fans += 1; details.push(`圈風(${t}) 1台`) }
+        if (t === seatWind)  { fans += 1; details.push(`門風(${t}) 1台`) }
+      }
+    }
+  }
+  return { fans, details }
+}
+
+/** 箭牌台 */
+function calcDragonFans(
+  melds: Meld[], hand: string[]
+): { fans: number; details: string[] } {
+  const details: string[] = []
+  let fans = 0
+
+  const handTriples = getHandTriplets(hand)
+  const pongTiles = [
+    ...melds.filter(m => m.type === 'pong' || m.type === 'kong').map(m => m.tiles[0]),
+    ...handTriples,
+  ]
+
+  for (const t of pongTiles) {
+    if (DRAGON_TILES.includes(t)) {
+      fans += 1
+      const name = t === 'B' ? '白' : t === 'F' ? '發' : '中'
+      details.push(`${name}（箭牌）1台`)
+    }
+  }
+  return { fans, details }
+}
+
+/** 手牌中的刻子（3張同牌） */
+function getHandTriplets(hand: string[]): string[] {
+  const counts = new Map<string, number>()
+  for (const t of hand) counts.set(t, (counts.get(t) || 0) + 1)
+  const result: string[] = []
+  for (const [tile, cnt] of counts.entries()) if (cnt >= 3) result.push(tile)
+  return result
+}
+
+/** 大四喜：東南西北都有刻子 */
+function hasAllWindPongs(melds: Meld[], hand: string[]): boolean {
+  const handTriples = getHandTriplets(hand)
+  const pongs = new Set([
+    ...melds.filter(m => m.type === 'pong' || m.type === 'kong').map(m => m.tiles[0]),
+    ...handTriples,
+  ])
+  return WIND_TILES.every(w => pongs.has(w))
+}
+
+/** 大三元：中發白都有刻子 */
+function hasAllDragonPongs(melds: Meld[], hand: string[]): boolean {
+  const handTriples = getHandTriplets(hand)
+  const pongs = new Set([
+    ...melds.filter(m => m.type === 'pong' || m.type === 'kong').map(m => m.tiles[0]),
+    ...handTriples,
+  ])
+  return DRAGON_TILES.every(d => pongs.has(d))
+}
+
+/** 小四喜：東南西北3刻+1眼 */
+function hasSmallFourWinds(melds: Meld[], hand: string[]): boolean {
+  const handTriples = getHandTriplets(hand)
+  const pongs = new Set([
+    ...melds.filter(m => m.type === 'pong' || m.type === 'kong').map(m => m.tiles[0]),
+    ...handTriples,
+  ])
+  const windPongs = WIND_TILES.filter(w => pongs.has(w))
+  if (windPongs.length !== 3) return false
+  // 第4個風必須是眼牌
+  const missingWind = WIND_TILES.find(w => !pongs.has(w))!
+  const cnt = hand.filter(t => t === missingWind).length
+  return cnt >= 2
+}
+
+/** 小三元：中發白2刻+1眼 */
+function hasSmallThreeDragons(melds: Meld[], hand: string[]): boolean {
+  const handTriples = getHandTriplets(hand)
+  const pongs = new Set([
+    ...melds.filter(m => m.type === 'pong' || m.type === 'kong').map(m => m.tiles[0]),
+    ...handTriples,
+  ])
+  const dragonPongs = DRAGON_TILES.filter(d => pongs.has(d))
+  if (dragonPongs.length !== 2) return false
+  const missingDragon = DRAGON_TILES.find(d => !pongs.has(d))!
+  return hand.filter(t => t === missingDragon).length >= 2
+}
+
+/** 平胡嚴格條件：無字、無刻、非自摸、非獨聽、門清、雙面聽 */
+function isPingHu(
+  hand: string[], melds: Meld[],
+  winType: 'self-draw' | 'win-from-others' | null,
+  waitType: WaitType,
+  allTiles: string[]
+): boolean {
+  if (winType === 'self-draw') return false      // 自摸無平胡
+  if (melds.length > 0) return false             // 有吃碰槓無平胡
+  if (waitType !== 'two-sided') return false     // 非雙面無平胡
+  if (allTiles.some(t => HONOR_TILES.includes(t[t.length - 1]))) return false  // 有字牌
+  if (getHandTriplets(hand).length > 0) return false  // 有刻子
+  return true
+}
+
+/** 自摸檢查（給 AI 用） */
 export function checkSelfDrawWin(hand: string[], melds: Meld[]): boolean {
   if (hand.length === 0) return false
-  
-  // 检查最后一张牌是否能胡
   const lastTile = hand[hand.length - 1]
   const result = checkWin(hand, melds, lastTile)
-  
   return result.canWin
 }

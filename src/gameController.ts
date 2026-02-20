@@ -11,7 +11,7 @@ import {
   canConcealedKong,
   executeConcealedKong,
 } from './actionChecker'
-import { checkWin as checkWinNew, WinResult } from './winChecker'
+import { checkWin as checkWinNew, WinResult, WinContext } from './winChecker'
 import { getAIResponse, getAIDiscard, checkAISelfWin } from './aiLogic'
 import { GameEngine } from './wasm'
 
@@ -119,7 +119,8 @@ export class GameController {
       this.drawnTile = tile
       
       // 检查自摸和牌（传入新牌，hand 还未加入该牌）
-      const winResult = checkWinNew(currentPlayer.hand, currentPlayer.melds, tile)
+      const winResult = checkWinNew(currentPlayer.hand, currentPlayer.melds, tile, undefined,
+        this.buildWinContext(this.state.currentPlayerIdx, { isKongDraw: false }))
       
       // 检查成功后再加牌
       currentPlayer.hand.push(tile)
@@ -333,7 +334,8 @@ export class GameController {
     const actions: PlayerAction[] = []
     
     // 检查和牌（点和）
-    const winCheck = checkWinNew(player.hand, player.melds, undefined, tile)
+    const winCheck = checkWinNew(player.hand, player.melds, undefined, tile,
+      this.buildWinContext(playerIdx))
     if (winCheck.canWin) {
       actions.push('win')
     }
@@ -436,7 +438,8 @@ export class GameController {
     switch (chosen.action) {
       case 'win':
         // 重新檢查胡牌結果
-        const winCheckResult = checkWinNew(player.hand, player.melds, undefined, tile)
+        const winCheckResult = checkWinNew(player.hand, player.melds, undefined, tile,
+          this.buildWinContext(chosen.playerIdx))
         console.log(`🏆 ${player.name} 胡牌！番数: ${winCheckResult.fans}, 牌型: ${winCheckResult.pattern}`)
         
         // 點胡：把打出的牌加入手牌（用於顯示）
@@ -621,6 +624,20 @@ export class GameController {
   /**
    * 延迟函数
    */
+  /** 建立胡牌 context（風牌、莊家、最後一張等） */
+  private buildWinContext(playerIdx: number, options: Partial<WinContext> = {}): WinContext {
+    const winds: string[] = ['E', 'S', 'W', 'N']
+    return {
+      isDealer: playerIdx === 0,          // 東家 = 莊家（簡化）
+      seatWind: winds[playerIdx] ?? 'E',
+      roundWind: 'E',                     // 第一圈東風
+      isLastTile: this.state.tileCount === 0,
+      isKongDraw: false,
+      isRobKong: false,
+      ...options,
+    }
+  }
+
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms))
   }
