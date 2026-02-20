@@ -3,41 +3,49 @@
 import { Meld } from './gameState'
 
 /**
- * 牌类型显示映射
+ * Unicode 麻將牌字符對照表
+ * U+1F000 起的麻將專用 Unicode 字符
  */
-const tileTypeMap: { [key: string]: string } = {
-  'm': '萬',
-  'p': '筒',
-  's': '索',
-  'E': '東',
-  'S': '南',
-  'W': '西',
-  'N': '北',
-  'B': '白',
-  'F': '發',
-  'Z': '中',
+const TILE_EMOJI: Record<string, string> = {
+  // 萬子 U+1F007–1F00F
+  '1m': '🀇', '2m': '🀈', '3m': '🀉', '4m': '🀊', '5m': '🀋',
+  '6m': '🀌', '7m': '🀍', '8m': '🀎', '9m': '🀏',
+  // 索子 U+1F010–1F018
+  '1s': '🀐', '2s': '🀑', '3s': '🀒', '4s': '🀓', '5s': '🀔',
+  '6s': '🀕', '7s': '🀖', '8s': '🀗', '9s': '🀘',
+  // 筒子 U+1F019–1F021
+  '1p': '🀙', '2p': '🀚', '3p': '🀛', '4p': '🀜', '5p': '🀝',
+  '6p': '🀞', '7p': '🀟', '8p': '🀠', '9p': '🀡',
+  // 風牌 U+1F000–1F003
+  'E': '🀀', 'S': '🀁', 'W': '🀂', 'N': '🀃',
+  // 三元牌 U+1F004–1F006
+  'Z': '🀄', 'F': '🀅', 'B': '🀆',
+}
+
+/** 取得牌的 Unicode 字符 */
+export function tileToEmoji(tile: string): string {
+  return TILE_EMOJI[tile] ?? tile
 }
 
 /**
- * 获取牌的显示文本
+ * 牌类型显示映射（保留備用）
+ */
+const tileTypeMap: { [key: string]: string } = {
+  'm': '萬', 'p': '筒', 's': '索',
+  'E': '東', 'S': '南', 'W': '西', 'N': '北',
+  'B': '白', 'F': '發', 'Z': '中',
+}
+
+/**
+ * 获取牌的显示文本（備用，供非 emoji 場景使用）
  */
 export function getTileDisplay(tile: string): { suit: string; number: string } {
   const type = tile[tile.length - 1]
-  
-  // 风牌和箭牌
   if (['E', 'S', 'W', 'N', 'B', 'F', 'Z'].includes(type)) {
-    return {
-      suit: '',
-      number: tileTypeMap[type] || type,
-    }
+    return { suit: '', number: tileTypeMap[type] || type }
   }
-  
-  // 序数牌
   const num = tile.substring(0, tile.length - 1)
-  return {
-    suit: tileTypeMap[type] || type,
-    number: num,
-  }
+  return { suit: tileTypeMap[type] || type, number: num }
 }
 
 /**
@@ -73,20 +81,11 @@ export function renderTile(
     div.classList.add('disabled')
   }
   
-  const display = getTileDisplay(tile)
-  
-  // 创建牌面元素
-  if (display.suit) {
-    const suitDiv = document.createElement('div')
-    suitDiv.className = 'tile-suit'
-    suitDiv.textContent = display.suit
-    div.appendChild(suitDiv)
-  }
-  
-  const numberDiv = document.createElement('div')
-  numberDiv.className = 'tile-number'
-  numberDiv.textContent = display.number
-  div.appendChild(numberDiv)
+  // Unicode 麻將字符
+  const emojiDiv = document.createElement('div')
+  emojiDiv.className = 'tile-emoji'
+  emojiDiv.textContent = tileToEmoji(tile)
+  div.appendChild(emojiDiv)
   
   // 添加点击事件
   if (onClick && !isDisabled) {
@@ -195,25 +194,23 @@ export function renderHandHTML(
   
   // 先渲染其他牌，再渲染新摸的牌（最右边）
   const renderTileHtml = (tile: string, idx: number, isNewDraw: boolean) => {
-    const display = getTileDisplay(tile)
     const tileClass = getTileClass(tile)
     const disabled = !canDiscard
-    
+
     const classes = ['tile', tileClass]
     if (isNewDraw) classes.push('new-draw')
     if (disabled) classes.push('disabled')
-    
+
     return `
-      <button 
-        class="hand-tile-button ${classes.join(' ')}" 
+      <button
+        class="hand-tile-button ${classes.join(' ')}"
         data-tile="${tile}"
         data-index="${idx}"
         ${disabled ? 'disabled' : ''}
         ${disabled ? '' : `onclick="selectTile(${idx})"`}
         style="cursor: ${disabled ? 'not-allowed' : 'pointer'}; border: none; background: transparent; padding: 0;">
         <div class="tile-content" style="pointer-events: none;">
-          ${display.suit ? `<div class="tile-suit">${display.suit}</div>` : ''}
-          <div class="tile-number">${display.number}</div>
+          <div class="tile-emoji">${tileToEmoji(tile)}</div>
         </div>
       </button>
     `
@@ -242,13 +239,10 @@ export function renderMeldsHTML(melds: Meld[]): string {
   return melds.map(meld => {
     const typeIcon = meld.type === 'pong' ? '🤝' : meld.type === 'kong' ? '🔄' : '➡️'
     const tilesHTML = meld.tiles.map(tile => {
-      const display = getTileDisplay(tile)
       const tileClass = getTileClass(tile)
-      
       return `
         <div class="tile ${tileClass} disabled" data-tile="${tile}" style="width: 50px; height: 65px;">
-          ${display.suit ? `<div class="tile-suit" style="font-size: 10px;">${display.suit}</div>` : ''}
-          <div class="tile-number" style="font-size: 20px;">${display.number}</div>
+          <div class="tile-emoji" style="font-size: 28px;">${tileToEmoji(tile)}</div>
         </div>
       `
     }).join('')

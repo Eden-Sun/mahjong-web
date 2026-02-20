@@ -59,14 +59,20 @@
 .tile.tile-F { --color: #2e7d32; }  /* 發財 - 綠色 */
 .tile.tile-Z { --color: #c62828; }  /* 紅中 - 紅色 */
 
-/* 牌面元素 */
+/* Unicode 麻將字符 */
+.tile-emoji {
+  font-size: var(--tile-font-size);
+  line-height: 1;
+  user-select: none;
+  /* emoji 不套用 color，保留原色 */
+}
+
+/* 保留舊有 class 以防其他地方還在用 */
 .tile-suit {
   font-size: var(--tile-suit-size);
   color: var(--color);
   font-weight: 700;
   margin-bottom: 1px;
-  letter-spacing: 0.5px;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
 }
 
 .tile-number {
@@ -74,7 +80,6 @@
   color: var(--color);
   line-height: 1;
   font-weight: 700;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
 }
 
 /* 懸停效果 (桌面) */
@@ -173,6 +178,10 @@
   height: var(--meld-tile-height);
   min-width: 36px;
   min-height: 44px;
+}
+
+.meld-group .tile-emoji {
+  font-size: var(--meld-font-size);
 }
 
 .meld-group .tile-number {
