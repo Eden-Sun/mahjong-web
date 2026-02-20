@@ -72,12 +72,21 @@ export class GameController {
    * 检查玩家是否可以出牌
    */
   canPlayerDiscard(): boolean {
-    return (
+    const result = (
       this.state.gamePhase === 'discard' &&
       this.state.currentPlayerIdx === 0 &&
       this.state.players[0].hand.length > 0 &&
       !this.state.waitingForResponse
     )
+    console.log('🔍 canPlayerDiscard:', {
+      result,
+      gamePhase: this.state.gamePhase,
+      currentPlayerIdx: this.state.currentPlayerIdx,
+      handLength: this.state.players[0].hand.length,
+      waitingForResponse: this.state.waitingForResponse,
+      canAction: this.state.players[0].canAction
+    })
+    return result
   }
   
   /**
@@ -126,7 +135,16 @@ export class GameController {
           this.winResultAfterDraw = winResult
         } else {
           // AI 玩家 - 自动和牌
-          console.log(`${currentPlayer.name} 自摸！`)
+          console.log(`🏆 ${currentPlayer.name} 自摸！番数: ${winResult.fans}, 牌型: ${winResult.pattern}`)
+          
+          // 保存贏家信息
+          this.state.winner = this.state.currentPlayerIdx
+          this.state.winResult = {
+            fans: winResult.fans,
+            pattern: winResult.pattern,
+            winType: '自摸'
+          }
+          
           this.state.gamePhase = 'end'
           this.updateState()
           return
@@ -174,12 +192,13 @@ export class GameController {
     
     // 更新統一捨牌池：先將舊的當下牌改為 false
     this.state.discardPool.forEach(d => d.isCurrentTile = false)
-    // 加入新的當下牌
+    // 加入新的當下牌（帶唯一 ID）
     this.state.discardPool.push({
       tile,
       player: this.state.currentPlayerIdx,
       timestamp: Date.now(),
       isCurrentTile: true,
+      id: `discard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     })
     
     console.log(`${player.name} 出牌: ${tile}`)
@@ -221,12 +240,13 @@ export class GameController {
     
     // 更新統一捨牌池：先將舊的當下牌改為 false
     this.state.discardPool.forEach(d => d.isCurrentTile = false)
-    // 加入新的當下牌
+    // 加入新的當下牌（帶唯一 ID）
     this.state.discardPool.push({
       tile,
       player: this.state.currentPlayerIdx,
       timestamp: Date.now(),
       isCurrentTile: true,
+      id: `discard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     })
     
     console.log(`${currentPlayer.name} 出牌: ${tile}`)
@@ -244,7 +264,7 @@ export class GameController {
   /**
    * 检查其他玩家的响应（吃碰杠和）
    */
-  private async checkOthersResponse(): Promise<void> {
+  private async checkOthersResponse(excludePlayer?: number): Promise<void> {
     if (!this.state.lastDiscardedTile || this.state.lastDiscardPlayer === null) {
       return
     }
@@ -255,24 +275,36 @@ export class GameController {
     // 收集所有玩家的响应
     const responses: ResponseAction[] = []
     
-    // 检查其他 3 个玩家
+    // 检查其他 3 个玩家（逆時針順序）
+    // i=1 → +1 (順時針第1位)
+    // i=2 → +2 (順時針第2位)
+    // i=3 → +3 (逆時針下一家，可以吃)
     for (let i = 1; i <= 3; i++) {
       const playerIdx = (discardPlayerIdx + i) % 4
+      
+      // 跳過已經響應過的玩家
+      if (excludePlayer !== undefined && playerIdx === excludePlayer) {
+        console.log(`跳過玩家 ${playerIdx}（已選擇「過」）`)
+        continue
+      }
+      
       const player = this.state.players[playerIdx]
+      const isNextPlayer = (i === 3)  // 逆時針的下一家
       
       if (player.isHuman) {
         // 人类玩家 - 检查可用动作
-        const actions = this.getAvailableActions(playerIdx, tile, i === 1)
+        const actions = this.getAvailableActions(playerIdx, tile, isNextPlayer)
         if (actions.length > 0) {
           player.canAction = true
           // 等待玩家选择（通过 UI）
           // 这里不做处理，等待 playerResponse 调用
+          console.log(`等待玩家 ${playerIdx} 響應`)
           this.updateState()
           return
         }
       } else {
         // AI 玩家 - 自动决策
-        const response = getAIResponse(player, tile, i === 1)
+        const response = getAIResponse(player, tile, isNextPlayer)
         if (response.action !== 'pass') {
           responses.push({
             playerIdx,
@@ -288,6 +320,7 @@ export class GameController {
       await this.executeResponse(responses)
     } else {
       // 没有人响应，进入下一轮
+      console.log('所有玩家都選擇「過」，進入下一輪')
       await this.nextPlayer()
     }
   }
@@ -332,18 +365,29 @@ export class GameController {
   async playerResponse(action: PlayerAction, tiles?: string[]): Promise<void> {
     const player = this.state.players[0]
     
+    console.log('🎯 gameController.playerResponse 被調用:', { 
+      action, 
+      tiles, 
+      canAction: player.canAction,
+      lastDiscardedTile: this.state.lastDiscardedTile,
+      手牌: player.hand
+    })
+    
     if (!player.canAction) {
-      console.warn('当前玩家没有响应权')
+      console.warn('❌ 当前玩家没有响应权 (canAction = false)')
       return
     }
     
     player.canAction = false
     
     if (action === 'pass') {
-      // 继续检查其他玩家或进入下一轮
-      await this.checkOthersResponse()
+      console.log('玩家選擇「過」，繼續檢查其他 AI 玩家')
+      // 繼續檢查其他玩家（排除玩家0）
+      await this.checkOthersResponse(0)
       return
     }
+    
+    console.log('📤 準備執行響應動作:', { playerIdx: 0, action, tiles })
     
     // 执行响应动作
     await this.executeResponse([{
@@ -391,27 +435,69 @@ export class GameController {
     
     switch (chosen.action) {
       case 'win':
-        console.log(`${player.name} 和牌！`)
+        // 重新檢查胡牌結果
+        const winCheckResult = checkWinNew(player.hand, player.melds, undefined, tile)
+        console.log(`🏆 ${player.name} 胡牌！番数: ${winCheckResult.fans}, 牌型: ${winCheckResult.pattern}`)
+        
+        // 點胡：把打出的牌加入手牌（用於顯示）
+        player.hand.push(tile)
+        player.hand = sortHand(player.hand)
+        console.log(`📋 點胡後手牌: ${player.hand.length} 張`)
+        
+        // 保存贏家信息
+        this.state.winner = chosen.playerIdx
+        this.state.winResult = {
+          fans: winCheckResult.fans,
+          pattern: winCheckResult.pattern,
+          winType: '點胡'
+        }
+        
         this.state.gamePhase = 'end'
         this.updateState()
         break
         
       case 'kong':
+        console.log('🔶 執行明槓:', { 玩家: player.name, 目標牌: tile, 手牌Before: player.hand.length })
+        
         executeKong(player, tile)
         player.hand = sortHand(player.hand)
         
-        // 杠后补花（再摸一张）
-        const result = GameEngine.drawTile() as any
-        if (result && result.tile) {
-          player.hand.push(result.tile)
+        console.log('🔶 明槓完成，手牌After:', player.hand.length, '準備補牌...')
+        
+        // 明槓後補牌（從牌堆尾端摸一張）
+        const kongDrawResult = GameEngine.drawTile() as any
+        if (kongDrawResult && kongDrawResult.tile) {
+          const drawnTile = kongDrawResult.tile
+          console.log('🔶 補牌:', drawnTile)
+          
+          // 加入手牌
+          player.hand.push(drawnTile)
           player.hand = sortHand(player.hand)
-          this.state.tileCount = result.remaining || 0
+          this.state.tileCount = kongDrawResult.remaining || 0
+          
+          // 如果是玩家，保存新摸的牌（UI 高亮用）
+          if (player.isHuman) {
+            this.drawnTile = drawnTile
+          }
+          
+          console.log('🔶 補牌後手牌:', player.hand.length, '張')
         }
         
-        // 该玩家继续出牌
+        // 該玩家繼續出牌
         this.state.currentPlayerIdx = chosen.playerIdx
         this.state.gamePhase = 'discard'
         this.state.waitingForResponse = false
+        
+        // 清除所有玩家的響應權
+        this.state.players.forEach(p => { p.canAction = false })
+        
+        console.log('🔶 進入出牌階段:', {
+          currentPlayerIdx: this.state.currentPlayerIdx,
+          gamePhase: this.state.gamePhase,
+          isHuman: player.isHuman,
+          handLength: player.hand.length
+        })
+        
         this.updateState()
         
         // 如果是 AI，自动出牌
@@ -429,7 +515,24 @@ export class GameController {
         this.state.currentPlayerIdx = chosen.playerIdx
         this.state.gamePhase = 'discard'
         this.state.waitingForResponse = false
+        
+        // 清除所有玩家的響應權
+        this.state.players.forEach(p => { p.canAction = false })
+        
+        console.log('✅ 碰牌完成，狀態已更新:', {
+          currentPlayerIdx: this.state.currentPlayerIdx,
+          gamePhase: this.state.gamePhase,
+          waitingForResponse: this.state.waitingForResponse,
+          isHuman: player.isHuman,
+          handLength: player.hand.length
+        })
+        
         this.updateState()
+        
+        // 強制等待一幀，確保 UI 更新
+        await this.delay(100)
+        
+        console.log('🎯 碰牌後 canPlayerDiscard:', this.canPlayerDiscard())
         
         // 如果是 AI，自动出牌
         if (!player.isHuman) {
@@ -439,31 +542,70 @@ export class GameController {
         break
         
       case 'chow':
+        console.log('🍴 開始執行吃牌:', { 
+          玩家: player.name,
+          tiles: chosen.tiles, 
+          目標牌: tile,
+          手牌Before: [...player.hand]
+        })
+        
         if (chosen.tiles) {
-          executeChow(player, chosen.tiles)
+          const success = executeChow(player, chosen.tiles, tile)
+          console.log('🍴 executeChow 結果:', { success, 手牌After: [...player.hand] })
+          
+          if (!success) {
+            console.error('❌ 吃牌執行失敗！')
+            // 恢復 canAction 讓玩家可以重新選擇
+            player.canAction = true
+            this.updateState()
+            break
+          }
+          
           player.hand = sortHand(player.hand)
           
           // 该玩家继续出牌
           this.state.currentPlayerIdx = chosen.playerIdx
           this.state.gamePhase = 'discard'
           this.state.waitingForResponse = false
+          
+          // 清除所有玩家的響應權
+          this.state.players.forEach(p => { p.canAction = false })
+          
+          console.log('✅ 吃牌完成，狀態已更新:', {
+            currentPlayerIdx: this.state.currentPlayerIdx,
+            gamePhase: this.state.gamePhase,
+            waitingForResponse: this.state.waitingForResponse,
+            isHuman: player.isHuman,
+            handLength: player.hand.length,
+            melds: player.melds
+          })
+          
           this.updateState()
+          
+          // 強制等待一幀，確保 UI 更新
+          await this.delay(100)
+          
+          console.log('🎯 吃牌後 canPlayerDiscard:', this.canPlayerDiscard(), '手牌數:', player.hand.length)
           
           // 如果是 AI，自动出牌
           if (!player.isHuman) {
             await this.delay(800)
             await this.aiDiscard()
           }
+        } else {
+          console.error('❌ 吃牌失敗：沒有提供 tiles 參數')
         }
         break
     }
   }
   
   /**
-   * 进入下一位玩家的回合
+   * 进入下一位玩家的回合（逆時針）
+   * 順序：上家(1) → 玩家(0) → 下家(3) → 對家(2) → 上家(1)
    */
   private async nextPlayer(): Promise<void> {
-    this.state.currentPlayerIdx = (this.state.currentPlayerIdx + 1) % 4
+    // 逆時針：+3 等同於 -1 (mod 4)
+    this.state.currentPlayerIdx = (this.state.currentPlayerIdx + 3) % 4
     this.state.gamePhase = 'draw'
     this.state.waitingForResponse = false
     this.state.lastDiscardedTile = null
@@ -501,7 +643,15 @@ export class GameController {
     }
     
     const player = this.state.players[0]
-    console.log(`${player.name} 自摸！番数: ${this.winResultAfterDraw.fans}, 牌型: ${this.winResultAfterDraw.pattern}`)
+    console.log(`🏆 ${player.name} 自摸！番数: ${this.winResultAfterDraw.fans}, 牌型: ${this.winResultAfterDraw.pattern}`)
+    
+    // 保存贏家信息
+    this.state.winner = 0
+    this.state.winResult = {
+      fans: this.winResultAfterDraw.fans,
+      pattern: this.winResultAfterDraw.pattern,
+      winType: '自摸'
+    }
     
     // 游戏结束
     this.state.gamePhase = 'end'

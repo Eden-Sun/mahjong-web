@@ -1,0 +1,299 @@
+/* 手機優化 CSS */
+
+/* 基礎響應式設定 */
+@media (max-width: 768px) {
+  /* 已組牌區域 - 更緊湊 */
+  .meld-group {
+    padding: 6px !important;
+    gap: 3px !important;
+  }
+  
+  .meld-group .tile {
+    width: 40px !important;
+    height: 55px !important;
+  }
+  
+  .meld-group .tile-number {
+    font-size: 18px !important;
+  }
+  
+
+  /* 調整整體佈局 */
+  body {
+    padding: 0 !important;
+  }
+
+  /* 遊戲容器 */
+  #game-container {
+    padding: 8px !important;
+    height: 100vh;
+    overflow: hidden;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  
+  /* 頂部玩家區域 - 限制高度 */
+  .top-players {
+    flex: 0 0 auto !important;
+    max-height: 12vh !important;
+  }
+  
+  /* 中間區域 - 限制高度，確保可滾動 */
+  .middle-area {
+    flex: 1 1 auto !important;
+    max-height: 48vh !important;
+    overflow-y: auto !important;
+    min-height: 200px !important;
+  }
+
+  /* AI 玩家區域 - 縮小 */
+  .ai-player-container {
+    font-size: 0.8em !important;
+    padding: 6px !important;
+  }
+  
+  .ai-player-container h4 {
+    font-size: 1em !important;
+    margin-bottom: 6px !important;
+  }
+  
+  .ai-player-container > div {
+    font-size: 0.9em !important;
+  }
+
+  /* 牌桌區域 - 確保內容可見 */
+  .game-board {
+    min-width: 100% !important;
+    max-width: 100% !important;
+    padding: 10px !important;
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+  }
+
+  .game-board h2 {
+    font-size: 1.1em !important;
+    margin-bottom: 8px !important;
+  }
+  
+  .game-board-content {
+    overflow-y: auto !important;
+  }
+
+  /* 捨牌池 - 縮小 */
+  .discard-timeline-container {
+    padding: 8px !important;
+    min-height: 120px !important;
+    max-height: 180px !important;
+    gap: 8px !important;
+  }
+
+  .discard-tile.current-tile {
+    width: 60px !important;
+    height: 85px !important;
+  }
+
+  .discard-tile.current-tile .tile-content {
+    font-size: 1.5em !important;
+  }
+
+  .discard-tile.historic-tile {
+    width: 32px !important;
+    height: 48px !important;
+  }
+
+  .discard-tile.historic-tile .tile-content {
+    font-size: 0.9em !important;
+  }
+
+  /* 玩家手牌區域 - 確保始終可見 */
+  .player-hand-container {
+    padding: 10px !important;
+    max-height: 38vh !important;
+    min-height: 180px !important;
+    flex: 0 0 auto !important;
+    overflow-y: auto !important;
+  }
+
+  .player-hand-container h3 {
+    font-size: 1em !important;
+    margin: 0 0 8px 0 !important;
+  }
+
+  /* 手牌按鈕 - 適中尺寸 */
+  .hand-tile-button {
+    min-width: 44px !important;
+    min-height: 58px !important;
+    font-size: 1em !important;
+    padding: 6px 4px !important;
+  }
+  
+  .tile {
+    width: 44px !important;
+    height: 58px !important;
+  }
+  
+  .tile-number {
+    font-size: 18px !important;
+  }
+  
+  .tile-suit {
+    font-size: 10px !important;
+  }
+
+  /* 響應按鈕 - 加大觸控區域 */
+  .response-button {
+    min-height: 48px !important;
+    font-size: 1em !important;
+    padding: 12px 20px !important;
+  }
+
+  /* 狀態提示 */
+  .status-message {
+    font-size: 0.9em !important;
+    padding: 6px !important;
+    min-height: 30px !important;
+  }
+  
+  /* 遊戲狀態 */
+  .game-status {
+    padding: 10px !important;
+  }
+  
+  .game-status p {
+    font-size: 0.95em !important;
+    margin: 3px 0 !important;
+  }
+
+  /* 吃牌選擇對話框 */
+  .chow-selector-dialog {
+    width: 90% !important;
+    max-width: 400px !important;
+    padding: 20px !important;
+  }
+
+  .chow-option-btn {
+    min-height: 60px !important;
+    font-size: 1.1em !important;
+  }
+
+  .chow-tile {
+    font-size: 1.2em !important;
+    padding: 8px !important;
+  }
+
+  /* 高亮標籤 */
+  .highlight-label {
+    font-size: 0.8em !important;
+    padding: 3px 8px !important;
+  }
+
+  /* 隱藏不重要的元素（手機空間有限） */
+  .ai-player-hand-count {
+    display: none !important;
+  }
+
+  /* 調整間距 */
+  .game-board > * {
+    margin-bottom: 10px !important;
+  }
+}
+
+/* 小手機（寬度 < 480px）*/
+@media (max-width: 480px) {
+  /* 更小的捨牌池 */
+  .discard-timeline-container {
+    min-height: 100px !important;
+    max-height: 150px !important;
+  }
+  
+  .discard-tile.current-tile {
+    width: 48px !important;
+    height: 66px !important;
+  }
+
+  .discard-tile.current-tile .tile-content {
+    font-size: 1.2em !important;
+  }
+
+  .discard-tile.historic-tile {
+    width: 26px !important;
+    height: 38px !important;
+  }
+
+  /* 更小的手牌 */
+  .hand-tile-button {
+    min-width: 38px !important;
+    min-height: 52px !important;
+    font-size: 0.95em !important;
+  }
+  
+  .tile {
+    width: 38px !important;
+    height: 52px !important;
+  }
+  
+  .tile-number {
+    font-size: 16px !important;
+  }
+  
+  .tile-suit {
+    font-size: 9px !important;
+  }
+  
+  /* 更小的已組牌 */
+  .meld-group .tile {
+    width: 36px !important;
+    height: 50px !important;
+  }
+  
+  .meld-group .tile-number {
+    font-size: 16px !important;
+  }
+
+  /* 按鈕文字縮小 */
+  .response-button {
+    font-size: 0.9em !important;
+    padding: 10px 16px !important;
+  }
+
+  /* 標題縮小 */
+  .game-board h2 {
+    font-size: 1.1em !important;
+  }
+  
+  /* 按鈕區域 */
+  .game-board button {
+    padding: 8px 16px !important;
+    font-size: 0.9em !important;
+  }
+}
+
+/* 橫屏手機 */
+@media (max-width: 812px) and (orientation: landscape) {
+  #game-container {
+    padding: 5px !important;
+  }
+
+  .discard-timeline-container {
+    min-height: 120px !important;
+  }
+
+  .player-hand-container {
+    padding: 8px !important;
+  }
+
+  /* 橫屏時可以稍微縮小 */
+  .hand-tile-button {
+    min-height: 52px !important;
+  }
+}
+
+/* 加大觸控區域的通用規則 */
+@media (hover: none) and (pointer: coarse) {
+  /* 這是觸控設備 */
+  button, .clickable {
+    min-height: 44px !important; /* iOS 建議最小觸控尺寸 */
+    min-width: 44px !important;
+  }
+}

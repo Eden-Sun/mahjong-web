@@ -104,6 +104,30 @@
   flex: 0 0 auto; /* 固定高度 */
 }
 
+.player-hand-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.player-hand-melds {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-hand-melds-title {
+  color: #666;
+  display: block;
+  margin: 0;
+}
+
+.player-hand-melds-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .player-hand-tiles {
   display: flex;
   flex-wrap: wrap;

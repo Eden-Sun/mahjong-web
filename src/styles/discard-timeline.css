@@ -1,16 +1,36 @@
-/* 捨牌時間線樣式 - 中央海底 + 當下牌特顯 */
+/* 捨牌時間線樣式 - 中央海底 + 當下牌特顯 + 性能優化 */
+
+/* CSS 變量 - 捨牌區響應式尺寸 */
+:root {
+  /* 當下牌（特大）尺寸 */
+  --discard-current-width: 72px;
+  --discard-current-height: 96px;
+  --discard-current-font: 1.8em;
+  
+  /* 歷史牌（小牌）尺寸 */
+  --discard-historic-width: 36px;
+  --discard-historic-height: 52px;
+  --discard-historic-font: 1em;
+  
+  /* 間距 */
+  --discard-gap: 4px;
+  --discard-container-padding: 15px;
+}
 
 .discard-timeline-container {
   display: flex;
-  gap: 20px;
+  gap: 16px;
   align-items: center;
   justify-content: center;
-  padding: 15px;
-  background: rgba(0, 0, 0, 0.2);
+  padding: var(--discard-container-padding);
+  background: rgba(0, 0, 0, 0.25);
   border-radius: 12px;
-  min-height: 200px;
+  min-height: 180px;
   max-width: 900px;
   margin: 0 auto;
+  /* 性能優化：減少重繪 */
+  contain: layout style paint;
+  will-change: contents;
 }
 
 /* 左區：上家（南家） */
@@ -103,16 +123,33 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f5f5f5, #e0e0e0);
+  background: linear-gradient(145deg, #ffffff 0%, #f5f5f5 50%, #e8e8e8 100%);
   border-radius: 6px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s ease;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.15),
+    0 3px 6px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  touch-action: manipulation;
+  /* 性能優化：只 transition transform 和 opacity */
+  transition-property: transform, opacity, box-shadow;
+  will-change: auto;
 }
 
+/* 牌類顏色 */
+.discard-tile.tile-m { --color: #c62828; }
+.discard-tile.tile-p { --color: #1565c0; }
+.discard-tile.tile-s { --color: #2e7d32; }
+.discard-tile.tile-E, .discard-tile.tile-S, .discard-tile.tile-W, .discard-tile.tile-N { --color: #e65100; }
+.discard-tile.tile-B { --color: #666; }
+.discard-tile.tile-F { --color: #2e7d32; }  /* 發財 - 綠色 */
+.discard-tile.tile-Z { --color: #c62828; }  /* 紅中 - 紅色 */
+
 .tile-content {
-  font-weight: bold;
-  color: #333;
+  font-weight: 700;
+  color: var(--color, #333);  /* 使用牌類顏色變數，預設 #333 */
   text-align: center;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
 }
 
 .tile-arrow {
@@ -120,46 +157,203 @@
   margin-top: 2px;
 }
 
-/* 當下牌樣式（特大、黃邊、脈衝） */
+/* 當下牌樣式（特大、黃邊） */
 .discard-tile.current-tile {
-  width: 80px;
-  height: 110px;
-  border: 4px solid #FFD700;
-  box-shadow: 0 0 16px #FFD700, 0 8px 16px rgba(0, 0, 0, 0.3);
-  animation: pulse-current 0.6s ease-in-out infinite;
-  background: linear-gradient(135deg, #fff9c4, #fff59d);
+  width: var(--discard-current-width);
+  height: var(--discard-current-height);
+  min-width: 44px;
+  min-height: 44px;
+  border: 3px solid #FFD700;
+  box-shadow: 
+    0 0 16px rgba(255, 215, 0, 0.6),
+    0 6px 12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background: linear-gradient(145deg, #fffef5 0%, #fff9c4 50%, #fff59d 100%);
+  /* 性能優化：GPU 加速 */
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .discard-tile.current-tile .tile-content {
-  font-size: 2em;
+  font-size: var(--discard-current-font);
 }
 
-@keyframes pulse-current {
-  0%, 100% {
-    box-shadow: 0 0 16px #FFD700, 0 8px 16px rgba(0, 0, 0, 0.3);
-    transform: scale(1);
+/* 飛入動畫：從下方（玩家 0，自己） - GPU 加速 */
+.discard-tile.current-tile.fly-from-bottom {
+  animation-name: fly-from-bottom;
+  animation-duration: 0.65s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: forwards;
+  animation-iteration-count: 1;
+}
+
+@keyframes fly-from-bottom {
+  0% {
+    transform: translateY(200px) scale(0.5) rotate(6deg) translateZ(0);
+    opacity: 0;
   }
-  50% {
-    box-shadow: 0 0 24px #FFD700, 0 8px 16px rgba(0, 0, 0, 0.3);
-    transform: scale(1.05);
+  60% {
+    transform: translateY(-14px) scale(1.06) rotate(-1.5deg) translateZ(0);
+    opacity: 1;
   }
+  80% {
+    transform: translateY(5px) scale(0.97) rotate(0.5deg) translateZ(0);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotate(0deg) translateZ(0);
+    opacity: 1;
+  }
+}
+
+/* 飛入動畫：從左側（玩家 1，上家） - GPU 加速 */
+.discard-tile.current-tile.fly-from-left {
+  animation-name: fly-from-left;
+  animation-duration: 0.65s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: forwards;
+  animation-iteration-count: 1;
+}
+
+@keyframes fly-from-left {
+  0% {
+    transform: translateX(-200px) scale(0.5) rotate(-6deg) translateZ(0);
+    opacity: 0;
+  }
+  60% {
+    transform: translateX(14px) scale(1.06) rotate(1.5deg) translateZ(0);
+    opacity: 1;
+  }
+  80% {
+    transform: translateX(-5px) scale(0.97) rotate(-0.5deg) translateZ(0);
+  }
+  100% {
+    transform: translateX(0) scale(1) rotate(0deg) translateZ(0);
+    opacity: 1;
+  }
+}
+
+/* 飛入動畫：從上方（玩家 2，對家） - GPU 加速 */
+.discard-tile.current-tile.fly-from-top {
+  animation-name: fly-from-top;
+  animation-duration: 0.65s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: forwards;
+  animation-iteration-count: 1;
+}
+
+@keyframes fly-from-top {
+  0% {
+    transform: translateY(-200px) scale(0.5) rotate(-6deg) translateZ(0);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(14px) scale(1.06) rotate(1.5deg) translateZ(0);
+    opacity: 1;
+  }
+  80% {
+    transform: translateY(-5px) scale(0.97) rotate(-0.5deg) translateZ(0);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotate(0deg) translateZ(0);
+    opacity: 1;
+  }
+}
+
+/* 飛入動畫：從右側（玩家 3，下家） - GPU 加速 */
+.discard-tile.current-tile.fly-from-right {
+  animation-name: fly-from-right;
+  animation-duration: 0.65s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: forwards;
+  animation-iteration-count: 1;
+}
+
+@keyframes fly-from-right {
+  0% {
+    transform: translateX(200px) scale(0.5) rotate(6deg) translateZ(0);
+    opacity: 0;
+  }
+  60% {
+    transform: translateX(-14px) scale(1.06) rotate(-1.5deg) translateZ(0);
+    opacity: 1;
+  }
+  80% {
+    transform: translateX(5px) scale(0.97) rotate(0.5deg) translateZ(0);
+  }
+  100% {
+    transform: translateX(0) scale(1) rotate(0deg) translateZ(0);
+    opacity: 1;
+  }
+}
+
+/* 當下牌 + 可吃牌高亮（紅色優先，飛入後開始脈衝） */
+.discard-tile.current-tile.can-chow.fly-from-bottom {
+  border: 4px solid #ff0000 !important;
+  animation: fly-from-bottom 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards, pulse-chow 0.8s ease-in-out 0.65s infinite !important;
+}
+
+.discard-tile.current-tile.can-chow.fly-from-left {
+  border: 4px solid #ff0000 !important;
+  animation: fly-from-left 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards, pulse-chow 0.8s ease-in-out 0.65s infinite !important;
+}
+
+.discard-tile.current-tile.can-chow.fly-from-top {
+  border: 4px solid #ff0000 !important;
+  animation: fly-from-top 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards, pulse-chow 0.8s ease-in-out 0.65s infinite !important;
+}
+
+.discard-tile.current-tile.can-chow.fly-from-right {
+  border: 4px solid #ff0000 !important;
+  animation: fly-from-right 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards, pulse-chow 0.8s ease-in-out 0.65s infinite !important;
+}
+
+/* 當下牌 + 可碰牌高亮（橙色優先，飛入後開始脈衝） */
+.discard-tile.current-tile.can-pong.fly-from-bottom {
+  border: 4px solid #ffa500 !important;
+  animation: fly-from-bottom 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards, pulse-pong 0.8s ease-in-out 0.65s infinite !important;
+}
+
+.discard-tile.current-tile.can-pong.fly-from-left {
+  border: 4px solid #ffa500 !important;
+  animation: fly-from-left 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards, pulse-pong 0.8s ease-in-out 0.65s infinite !important;
+}
+
+.discard-tile.current-tile.can-pong.fly-from-top {
+  border: 4px solid #ffa500 !important;
+  animation: fly-from-top 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards, pulse-pong 0.8s ease-in-out 0.65s infinite !important;
+}
+
+.discard-tile.current-tile.can-pong.fly-from-right {
+  border: 4px solid #ffa500 !important;
+  animation: fly-from-right 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards, pulse-pong 0.8s ease-in-out 0.65s infinite !important;
 }
 
 /* 歷史牌樣式（小、透明） */
 .discard-tile.historic-tile {
-  width: 40px;
-  height: 60px;
-  border: 2px solid #666;
-  opacity: 0.8;
+  width: var(--discard-historic-width);
+  height: var(--discard-historic-height);
+  min-width: 28px;
+  min-height: 36px;
+  border: 1.5px solid #555;
+  opacity: 0.85;
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .discard-tile.historic-tile .tile-content {
-  font-size: 1.1em;
+  font-size: var(--discard-historic-font);
 }
 
-/* 當下牌滑至側邊動畫 */
+/* 當下牌滑至側邊動畫（自動：0.5s 延遲） */
 .discard-highlight-center.animate-to-side {
   animation: slide-to-side 0.5s ease-in-out 0.5s forwards;
+}
+
+/* 當下牌滑至側邊動畫（手動觸發：立即執行） */
+.discard-highlight-center.animate-to-side.manual {
+  animation: slide-to-side 0.4s ease-in-out forwards;
 }
 
 @keyframes slide-to-side {
@@ -174,33 +368,37 @@
   }
 }
 
-/* 高亮效果：可吃牌 */
+/* 高亮效果：可吃牌（增強紅色脈衝） */
 .discard-tile.can-chow {
-  border: 3px solid #ff0000;
-  animation: pulse-chow 0.8s ease-in-out infinite;
+  border: 4px solid #ff0000;
+  animation: pulse-chow 0.6s ease-in-out infinite;
 }
 
 @keyframes pulse-chow {
   0%, 100% {
-    box-shadow: 0 0 12px #ff0000;
+    box-shadow: 0 0 20px #ff0000, 0 0 40px rgba(255, 0, 0, 0.5), 0 8px 16px rgba(0, 0, 0, 0.3);
+    transform: scale(1);
   }
   50% {
-    box-shadow: 0 0 20px #ff0000;
+    box-shadow: 0 0 30px #ff0000, 0 0 60px rgba(255, 0, 0, 0.7), 0 8px 16px rgba(0, 0, 0, 0.3);
+    transform: scale(1.08);
   }
 }
 
-/* 高亮效果：可碰牌 */
+/* 高亮效果：可碰牌（增強橙色脈衝） */
 .discard-tile.can-pong {
-  border: 3px solid #ffa500;
-  animation: pulse-pong 0.8s ease-in-out infinite;
+  border: 4px solid #ffa500;
+  animation: pulse-pong 0.6s ease-in-out infinite;
 }
 
 @keyframes pulse-pong {
   0%, 100% {
-    box-shadow: 0 0 12px #ffa500;
+    box-shadow: 0 0 20px #ffa500, 0 0 40px rgba(255, 165, 0, 0.5), 0 8px 16px rgba(0, 0, 0, 0.3);
+    transform: scale(1);
   }
   50% {
-    box-shadow: 0 0 20px #ffa500;
+    box-shadow: 0 0 30px #ffa500, 0 0 60px rgba(255, 165, 0, 0.7), 0 8px 16px rgba(0, 0, 0, 0.3);
+    transform: scale(1.08);
   }
 }
 
@@ -231,5 +429,246 @@
   }
   50% {
     transform: translateX(-50%) translateY(-4px);
+  }
+}
+
+/* ========== 響應式捨牌區尺寸 ========== */
+
+/* 大螢幕 (桌面 1200px+) */
+@media (min-width: 1200px) {
+  :root {
+    --discard-current-width: 80px;
+    --discard-current-height: 108px;
+    --discard-current-font: 2em;
+    --discard-historic-width: 40px;
+    --discard-historic-height: 56px;
+    --discard-historic-font: 1.1em;
+  }
+  
+  .discard-timeline-container {
+    gap: 20px;
+    min-height: 200px;
+  }
+}
+
+/* 平板 (768px - 1024px) */
+@media (max-width: 1024px) {
+  :root {
+    --discard-current-width: 68px;
+    --discard-current-height: 90px;
+    --discard-current-font: 1.7em;
+    --discard-historic-width: 34px;
+    --discard-historic-height: 48px;
+    --discard-historic-font: 0.95em;
+    --discard-container-padding: 12px;
+  }
+  
+  .discard-timeline-container {
+    gap: 14px;
+    min-height: 160px;
+  }
+  
+  .discard-left,
+  .discard-right {
+    max-width: 130px;
+  }
+  
+  .discard-center {
+    max-width: 380px;
+  }
+}
+
+/* 大手機 (480px - 768px) */
+@media (max-width: 768px) {
+  :root {
+    --discard-current-width: 56px;
+    --discard-current-height: 76px;
+    --discard-current-font: 1.4em;
+    --discard-historic-width: 30px;
+    --discard-historic-height: 42px;
+    --discard-historic-font: 0.9em;
+    --discard-gap: 3px;
+    --discard-container-padding: 8px;
+  }
+  
+  .discard-timeline-container {
+    gap: 8px;
+    min-height: 120px;
+    max-height: 160px;
+    padding: 8px;
+  }
+  
+  .discard-left,
+  .discard-right {
+    max-width: 100px;
+    gap: 3px;
+  }
+  
+  .discard-center {
+    max-width: 300px;
+    gap: 10px;
+  }
+  
+  .discard-tiles-top,
+  .discard-tiles-bottom {
+    max-width: 280px;
+    gap: 3px;
+  }
+  
+  .discard-highlight-top,
+  .discard-highlight-bottom,
+  .discard-highlight-center {
+    min-height: 85px;
+  }
+  
+  .discard-tile.current-tile {
+    border-width: 2.5px;
+  }
+  
+  .highlight-label {
+    font-size: 0.75em;
+    padding: 3px 8px;
+    top: -20px;
+  }
+}
+
+/* 小手機 (< 480px) */
+@media (max-width: 480px) {
+  :root {
+    --discard-current-width: 48px;
+    --discard-current-height: 64px;
+    --discard-current-font: 1.2em;
+    --discard-historic-width: 26px;
+    --discard-historic-height: 36px;
+    --discard-historic-font: 0.8em;
+    --discard-gap: 2px;
+    --discard-container-padding: 6px;
+  }
+  
+  .discard-timeline-container {
+    gap: 6px;
+    min-height: 100px;
+    max-height: 140px;
+    padding: 6px;
+    border-radius: 8px;
+  }
+  
+  .discard-left,
+  .discard-right {
+    max-width: 80px;
+    gap: 2px;
+  }
+  
+  .discard-center {
+    max-width: 240px;
+    gap: 8px;
+  }
+  
+  .discard-tiles-top,
+  .discard-tiles-bottom {
+    max-width: 220px;
+    gap: 2px;
+  }
+  
+  .discard-highlight-top,
+  .discard-highlight-bottom,
+  .discard-highlight-center {
+    min-height: 72px;
+  }
+  
+  .discard-tile.current-tile {
+    border-width: 2px;
+  }
+  
+  .discard-tile.historic-tile {
+    border-width: 1px;
+  }
+  
+  .highlight-label {
+    font-size: 0.7em;
+    padding: 2px 6px;
+    top: -18px;
+    border-radius: 4px;
+  }
+  
+  /* 減少動畫強度以優化性能 */
+  @keyframes pulse-chow {
+    0%, 100% {
+      box-shadow: 0 0 12px #ff0000, 0 4px 8px rgba(0, 0, 0, 0.2);
+      transform: scale(1);
+    }
+    50% {
+      box-shadow: 0 0 18px #ff0000, 0 4px 8px rgba(0, 0, 0, 0.2);
+      transform: scale(1.05);
+    }
+  }
+  
+  @keyframes pulse-pong {
+    0%, 100% {
+      box-shadow: 0 0 12px #ffa500, 0 4px 8px rgba(0, 0, 0, 0.2);
+      transform: scale(1);
+    }
+    50% {
+      box-shadow: 0 0 18px #ffa500, 0 4px 8px rgba(0, 0, 0, 0.2);
+      transform: scale(1.05);
+    }
+  }
+}
+
+/* 超小螢幕 (< 360px) */
+@media (max-width: 360px) {
+  :root {
+    --discard-current-width: 42px;
+    --discard-current-height: 56px;
+    --discard-current-font: 1.1em;
+    --discard-historic-width: 22px;
+    --discard-historic-height: 30px;
+    --discard-historic-font: 0.7em;
+  }
+  
+  .discard-timeline-container {
+    gap: 4px;
+    min-height: 90px;
+    max-height: 120px;
+  }
+  
+  .discard-left,
+  .discard-right {
+    max-width: 60px;
+  }
+  
+  .discard-center {
+    max-width: 200px;
+  }
+  
+  .discard-highlight-top,
+  .discard-highlight-bottom,
+  .discard-highlight-center {
+    min-height: 62px;
+  }
+}
+
+/* 橫屏模式優化 */
+@media (max-width: 812px) and (orientation: landscape) {
+  :root {
+    --discard-current-width: 44px;
+    --discard-current-height: 58px;
+    --discard-current-font: 1.1em;
+    --discard-historic-width: 24px;
+    --discard-historic-height: 32px;
+    --discard-historic-font: 0.75em;
+  }
+  
+  .discard-timeline-container {
+    min-height: 80px;
+    max-height: 110px;
+    gap: 6px;
+    padding: 5px;
+  }
+  
+  .discard-highlight-top,
+  .discard-highlight-bottom,
+  .discard-highlight-center {
+    min-height: 64px;
   }
 }

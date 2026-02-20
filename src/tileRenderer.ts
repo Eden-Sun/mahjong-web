@@ -204,15 +204,18 @@ export function renderHandHTML(
     if (disabled) classes.push('disabled')
     
     return `
-      <div 
-        class="${classes.join(' ')}" 
+      <button 
+        class="hand-tile-button ${classes.join(' ')}" 
         data-tile="${tile}"
         data-index="${idx}"
+        ${disabled ? 'disabled' : ''}
         ${disabled ? '' : `onclick="selectTile(${idx})"`}
-        style="cursor: ${disabled ? 'not-allowed' : 'pointer'};">
-        ${display.suit ? `<div class="tile-suit">${display.suit}</div>` : ''}
-        <div class="tile-number">${display.number}</div>
-      </div>
+        style="cursor: ${disabled ? 'not-allowed' : 'pointer'}; border: none; background: transparent; padding: 0;">
+        <div class="tile-content" style="pointer-events: none;">
+          ${display.suit ? `<div class="tile-suit">${display.suit}</div>` : ''}
+          <div class="tile-number">${display.number}</div>
+        </div>
+      </button>
     `
   }
   

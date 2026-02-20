@@ -20,6 +20,7 @@ export interface DiscardedTile {
   isCurrentTile: boolean   // 是否是當下牌（最新捨出的牌）
   claimedBy?: number
   claimType?: 'pong' | 'chow' | 'kong'
+  id: string               // 唯一識別符，用於追蹤動畫狀態
 }
 
 /**
@@ -68,12 +69,18 @@ export interface GameState {
   round: number                     // 回合数
   waitingForResponse: boolean       // 是否等待响应
   pendingActions: ResponseAction[]  // 待处理的响应动作
+  winner: number | null             // 贏家索引（null = 流局）
+  winResult: { fans: number; pattern: string; winType: string } | null  // 胡牌結果
 }
 
 /**
  * 创建初始游戏状态
  */
 export function createInitialGameState(): GameState {
+  // 隨機決定莊家（0-3）
+  const randomDealer = Math.floor(Math.random() * 4)
+  console.log(`🎲 莊家：玩家 ${randomDealer}`)
+  
   return {
     players: [
       { name: '你', hand: [], melds: [], discardPile: [], score: 0, isHuman: true, canAction: false },
@@ -81,7 +88,7 @@ export function createInitialGameState(): GameState {
       { name: 'AI-南', hand: [], melds: [], discardPile: [], score: 0, isHuman: false, canAction: false },
       { name: 'AI-西', hand: [], melds: [], discardPile: [], score: 0, isHuman: false, canAction: false },
     ],
-    currentPlayerIdx: 0,
+    currentPlayerIdx: randomDealer,
     gamePhase: 'draw',
     lastDiscardedTile: null,
     lastDiscardPlayer: null,
@@ -90,6 +97,8 @@ export function createInitialGameState(): GameState {
     round: 1,
     waitingForResponse: false,
     pendingActions: [],
+    winner: null,
+    winResult: null,
   }
 }
 

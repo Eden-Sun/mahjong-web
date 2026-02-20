@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, sans-serif;
+  background: #1e3c72;
+}
+
+#test-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+  padding: 6px;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.top-area {
+  flex: 0 0 auto;
+  background: rgba(255,255,255,0.2);
+  padding: 10px;
+  border-radius: 8px;
+  color: white;
+  min-height: 60px;
+  max-height: 80px;
+}
+
+.middle-area {
+  flex: 1 1 auto;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 10px;
+  overflow-y: auto;
+  min-height: 0;
+  max-height: calc(100vh - 80px - 200px - 18px);
+}
+
+.bottom-area {
+  flex: 0 0 200px;
+  background: rgba(255,255,255,0.95);
+  border-radius: 8px;
+  padding: 10px;
+  min-height: 200px;
+  z-index: 100;
+  position: relative;
+}
+
+.hand-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  overflow-y: auto;
+  max-height: 160px;
+}
+
+button.hand-tile-button {
+  width: 42px;
+  height: 56px;
+  background: white;
+  border: 2px solid #333;
+  border-radius: 4px;
+  cursor: pointer;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 10;
+  font-size: 18px;
+}
+
+button.hand-tile-button:active {
+  transform: scale(0.95);
+  background: yellow;
+}
+
+.tile-content {
+  pointer-events: none !important;
+}
+</style>
+</head>
+<body>
+<div id="test-container">
+  <div class="top-area">
+    <strong>頂部區域</strong> - AI 玩家 (60-80px)
+  </div>
+  
+  <div class="middle-area">
+    <strong>中間牌桌</strong> - 彈性高度，可滾動<br>
+    <div style="height: 800px; background: rgba(255,255,255,0.1); margin-top: 10px; border-radius: 4px;">
+      (內容超高，測試滾動)
+    </div>
+  </div>
+  
+  <div class="bottom-area">
+    <strong>手牌區域 (200px 固定)</strong>
+    <div class="hand-tiles">
+      <button class="hand-tile-button" onclick="alert('1 萬')">
+        <div class="tile-content">1<br>萬</div>
+      </button>
+      <button class="hand-tile-button" onclick="alert('2 萬')">
+        <div class="tile-content">2<br>萬</div>
+      </button>
+      <button class="hand-tile-button" onclick="alert('3 萬')">
+        <div class="tile-content">3<br>萬</div>
+      </button>
+      <button class="hand-tile-button" onclick="alert('4 萬')">
+        <div class="tile-content">4<br>萬</div>
+      </button>
+      <button class="hand-tile-button" onclick="alert('5 萬')">
+        <div class="tile-content">5<br>萬</div>
+      </button>
+      <button class="hand-tile-button" onclick="alert('東')">
+        <div class="tile-content">東</div>
+      </button>
+      <button class="hand-tile-button" onclick="alert('南')">
+        <div class="tile-content">南</div>
+      </button>
+      <button class="hand-tile-button" onclick="alert('西')">
+        <div class="tile-content">西</div>
+      </button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

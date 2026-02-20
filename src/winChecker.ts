@@ -33,31 +33,26 @@ export function checkWin(
     // 自摸 - 新牌加入手牌
     winType = 'self-draw'
     fullHand = [...hand, drawnTile]
+    console.log(`🎯 檢查自摸：手牌 ${hand.length} 張 + 新牌 [${drawnTile}] = ${fullHand.length} 張`)
   } else if (discardedTile) {
     // 点和 - 别人出的牌加入手牌
     winType = 'win-from-others'
     fullHand = [...hand, discardedTile]
+    console.log(`🎯 檢查點胡：手牌 ${hand.length} 張 + 打出牌 [${discardedTile}] = ${fullHand.length} 張`)
   } else {
     // 只检查当前手牌
     fullHand = [...hand]
+    console.log(`🎯 檢查當前手牌：${fullHand.length} 張`)
   }
   
   // 计算已有的面子数
   const meldCount = melds.length
   
-  // 检查牌数是否正确
-  const usedTiles = melds.reduce((sum, m) => sum + m.tiles.length, 0)
-  const totalTiles = usedTiles + fullHand.length
+  // 標準麻將：4 組面子 + 1 對眼
+  // 不驗證總牌數，只驗證結構（能否組成需要的面子）
+  const needMelds = 5 - meldCount
   
-  // 标准胡牌：14 张（或有杠时 17 张、20 张）
-  // 注：如果手牌已包含新牌，fullHand.length 就是总手牌数
-  const validTileCounts = [14, 17, 20]
-  if (!validTileCounts.includes(totalTiles)) {
-    return { canWin: false, winType: null, fans: 0, pattern: '' }
-  }
-  
-  // 需要的面子数：4 组面子 + 1 对眼
-  const needMelds = 4 - meldCount
+  console.log(`📊 已有 ${meldCount} 組面子，還需要 ${needMelds} 組`)
   
   // 检查是否能组成胡牌
   const canWin = canFormWinPattern(fullHand, needMelds)

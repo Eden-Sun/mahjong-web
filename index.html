@@ -2,8 +2,11 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>🀄 麻將 - Pure TypeScript</title>
+  <link rel="stylesheet" href="/src/styles/mobile.css">
   <style>
     * {
       margin: 0;
@@ -18,7 +21,8 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      padding: 20px;
+      padding: 0;
+      margin: 0;
     }
     
     .container {
@@ -27,7 +31,7 @@
       background: white;
       border-radius: 12px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      padding: 40px;
+      padding: 0;
       text-align: center;
     }
     
@@ -41,7 +45,8 @@
     }
     
     #app {
-      margin-top: 40px;
+      margin: 0;
+      padding: 0;
     }
   </style>
 </head>

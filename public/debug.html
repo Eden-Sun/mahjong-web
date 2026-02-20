@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>遊戲狀態診斷</title>
+<style>
+body {
+  font-family: monospace;
+  padding: 20px;
+  background: #f0f0f0;
+}
+pre {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+button {
+  padding: 10px 20px;
+  margin: 10px 5px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.status {
+  margin: 10px 0;
+  padding: 10px;
+  border-radius: 4px;
+}
+.ok { background: #d4edda; border: 1px solid #28a745; }
+.error { background: #f8d7da; border: 1px solid #dc3545; }
+.warning { background: #fff3cd; border: 1px solid #ffc107; }
+</style>
+</head>
+<body>
+<h1>🔍 麻將遊戲診斷工具</h1>
+
+<div>
+  <button onclick="checkGameState()">檢查遊戲狀態</button>
+  <button onclick="checkCSS()">檢查 CSS 載入</button>
+  <button onclick="checkButtons()">檢查按鈕狀態</button>
+  <button onclick="location.href='/'">返回遊戲</button>
+</div>
+
+<div id="output"></div>
+
+<script>
+function log(html) {
+  document.getElementById('output').innerHTML += html;
+}
+
+function checkGameState() {
+  log('<h2>遊戲狀態檢查</h2>');
+  
+  // 嘗試從 window 獲取遊戲狀態
+  const checks = [
+    { name: 'gameState', value: window.gameState },
+    { name: 'gameController', value: window.gameController },
+    { name: 'selectTile函數', value: typeof window.selectTile === 'function' }
+  ];
+  
+  checks.forEach(check => {
+    const status = check.value ? 'ok' : 'error';
+    log(`<div class="status ${status}">✓ ${check.name}: ${check.value ? '存在' : '不存在'}</div>`);
+  });
+  
+  if (window.gameState) {
+    log('<h3>遊戲階段資訊</h3>');
+    log(`<pre>${JSON.stringify({
+      gamePhase: window.gameState.gamePhase,
+      currentPlayerIdx: window.gameState.currentPlayerIdx,
+      waitingForResponse: window.gameState.waitingForResponse,
+      playerHandSize: window.gameState.players[0]?.hand?.length
+    }, null, 2)}</pre>`);
+  }
+}
+
+function checkCSS() {
+  log('<h2>CSS 檢查</h2>');
+  
+  const sheets = Array.from(document.styleSheets);
+  log(`<div class="status ok">載入了 ${sheets.length} 個樣式表</div>`);
+  
+  // 檢查是否有 mobile-optimized.css 的規則
+  let foundMobileRules = false;
+  sheets.forEach((sheet, idx) => {
+    try {
+      const rules = Array.from(sheet.cssRules || []);
+      const hasMobileRules = rules.some(rule => 
+        rule.cssText && rule.cssText.includes('button.hand-tile-button')
+      );
+      if (hasMobileRules) {
+        foundMobileRules = true;
+        log(`<div class="status ok">✓ 樣式表 ${idx}: 包含 mobile-optimized 規則</div>`);
+      }
+    } catch(e) {
+      // CORS 限制，無法讀取
+    }
+  });
+  
+  if (!foundMobileRules) {
+    log(`<div class="status warning">⚠ 未找到 mobile-optimized.css 規則（可能被 CORS 限制）</div>`);
+  }
+}
+
+function checkButtons() {
+  log('<h2>按鈕狀態檢查</h2>');
+  
+  const buttons = document.querySelectorAll('button.hand-tile-button');
+  log(`<div class="status ${buttons.length > 0 ? 'ok' : 'error'}">找到 ${buttons.length} 個手牌按鈕</div>`);
+  
+  if (buttons.length > 0) {
+    buttons.forEach((btn, idx) => {
+      const isDisabled = btn.disabled;
+      const hasOnclick = btn.onclick !== null;
+      const pointerEvents = window.getComputedStyle(btn).pointerEvents;
+      const zIndex = window.getComputedStyle(btn).zIndex;
+      
+      log(`<div class="status ${isDisabled ? 'error' : 'ok'}">
+        按鈕 ${idx + 1}: 
+        disabled=${isDisabled}, 
+        onclick=${hasOnclick}, 
+        pointer-events=${pointerEvents},
+        z-index=${zIndex}
+      </div>`);
+    });
+  }
+}
+
+// 自動執行檢查
+setTimeout(() => {
+  if (window.location.pathname === '/debug.html') {
+    checkGameState();
+    checkCSS();
+    checkButtons();
+  }
+}, 500);
+</script>
+</body>
+</html>

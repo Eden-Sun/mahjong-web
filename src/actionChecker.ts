@@ -316,16 +316,32 @@ export function executeConcealedKong(player: Player, tile: string): boolean {
 /**
  * 执行吃操作
  */
-export function executeChow(player: Player, tiles: string[]): boolean {
+export function executeChow(player: Player, tiles: string[], targetTile?: string): boolean {
   if (tiles.length !== 3) return false
   
-  // 从手牌中移除 2 张（第 3 张是别人出的）
-  const toRemove = tiles.slice(0, 2)
+  // 如果沒有傳入 targetTile，假設是最後一張（向後兼容）
+  const tileToEat = targetTile || tiles[2]
+  
+  // 從手牌中移除另外 2 張（不包括要吃的那張）
+  const toRemove = tiles.filter(t => t !== tileToEat)
+  
+  console.log('🍴 執行吃牌:', { tiles, tileToEat, toRemove, handBefore: [...player.hand] })
+  
+  if (toRemove.length !== 2) {
+    console.error('❌ 吃牌失敗：需要移除 2 張手牌，但只找到', toRemove.length, '張')
+    return false
+  }
+  
   for (const tile of toRemove) {
     const idx = player.hand.indexOf(tile)
-    if (idx === -1) return false
+    if (idx === -1) {
+      console.error('❌ 吃牌失敗：手牌中找不到', tile)
+      return false
+    }
     player.hand.splice(idx, 1)
   }
+  
+  console.log('✅ 吃牌成功，手牌變為:', player.hand)
   
   // 加入 melds
   player.melds.push({

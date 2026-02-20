@@ -3,6 +3,7 @@ import './tile.css'
 import './styles/discard-timeline.css'
 import './styles/layout.css'
 import './styles/mobile-optimized.css'
+import './debug' // 🐛 Mobile Debug Tool (僅 dev 環境)
 import { initWasm, GameEngine } from './wasm'
 import { GameState, createInitialGameState, sortHand } from './gameState'
 import { GameController } from './gameController'
@@ -24,7 +25,7 @@ const tileDisplay: { [key: string]: string } = {
   '1s': '1索', '2s': '2索', '3s': '3索', '4s': '4索', '5s': '5索',
   '6s': '6索', '7s': '7索', '8s': '8索', '9s': '9索',
   'E': '東', 'S': '南', 'W': '西', 'N': '北',
-  'B': '白', 'F': '發', 'Z': '中',
+  'B': '▢', 'F': '發', 'Z': '中',
 }
 
 const phaseDisplay: { [key: string]: string } = {
@@ -70,6 +71,189 @@ async function init() {
 
   // 顯示主菜單
   showMenu()
+}
+
+function togglePlayerHand(playerIdx: number) {
+  const handElement = document.getElementById(`player-hand-${playerIdx}`)
+  const iconElement = document.getElementById(`toggle-icon-${playerIdx}`)
+  const cardElement = document.getElementById(`player-card-${playerIdx}`)
+  
+  if (handElement && iconElement && cardElement) {
+    const isExpanded = handElement.style.display !== 'none'
+    
+    if (isExpanded) {
+      // 收起
+      handElement.style.display = 'none'
+      iconElement.textContent = '👇'
+      cardElement.style.width = '100px'
+      cardElement.style.boxShadow = 'none'
+    } else {
+      // 展開
+      handElement.style.display = 'block'
+      iconElement.textContent = '👆'
+      cardElement.style.width = '240px'
+      cardElement.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
+    }
+  }
+}
+
+function showGameEndScreen() {
+  const winner = gameState.winner
+  const winResult = gameState.winResult
+  
+  if (winner === null || !winResult) {
+    // 流局
+    app.innerHTML = `
+      <style>
+        @media (max-width: 768px) {
+          .draw-screen {
+            margin: 20px 10px !important;
+            padding: 25px 15px !important;
+          }
+          .draw-screen h1 {
+            font-size: 2.2em !important;
+          }
+          .draw-screen p {
+            font-size: 1em !important;
+          }
+        }
+      </style>
+      <div class="draw-screen" style="max-width: 600px; margin: 40px auto; text-align: center; padding: 40px; background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+        <h1 style="font-size: 3em; margin-bottom: 20px;">🌊 流局</h1>
+        <p style="font-size: 1.2em; color: #666; margin-bottom: 30px;">牌堆已空，無人胡牌</p>
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          <button id="restartBtn" style="padding: 12px 30px; font-size: clamp(0.95em, 2.5vw, 1.1em); background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; min-width: 120px;">🔄 再來一局</button>
+          <button id="menuBtn" style="padding: 12px 30px; font-size: clamp(0.95em, 2.5vw, 1.1em); background: #f0f0f0; color: #333; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; min-width: 120px;">🏠 返回菜單</button>
+        </div>
+      </div>
+    `
+    
+    // 綁定按鈕事件
+    const restartBtn = document.getElementById('restartBtn')
+    const menuBtn = document.getElementById('menuBtn')
+    
+    if (restartBtn) {
+      restartBtn.addEventListener('click', () => {
+        console.log('🔄 點擊「再來一局」（流局）')
+        startGame()
+      })
+    }
+    
+    if (menuBtn) {
+      menuBtn.addEventListener('click', () => {
+        console.log('🏠 點擊「返回菜單」（流局）')
+        showMenu()
+      })
+    }
+    
+    return
+  }
+  
+  const winnerPlayer = gameState.players[winner]
+  const isPlayerWin = winner === 0
+  
+  app.innerHTML = `
+    <style>
+      @media (max-width: 768px) {
+        .game-end-screen {
+          margin: 10px !important;
+          padding: 15px !important;
+          border-radius: 8px !important;
+          max-height: 95vh !important;
+        }
+        .game-end-screen h1 {
+          font-size: clamp(2em, 10vw, 3em) !important;
+        }
+        .game-end-screen h2 {
+          font-size: clamp(1.2em, 6vw, 2em) !important;
+        }
+      }
+    </style>
+    <div class="game-end-screen" style="max-width: 800px; margin: 20px auto; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h1 style="font-size: clamp(2.5em, 8vw, 4em); margin-bottom: 10px;">${isPlayerWin ? '🎉' : '😢'}</h1>
+        <h2 style="font-size: clamp(1.5em, 5vw, 2.5em); margin-bottom: 15px; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+          ${isPlayerWin ? '恭喜胡牌！' : `${winnerPlayer.name} 胡牌`}
+        </h2>
+        
+        <div style="display: inline-block; padding: 15px 25px; background: linear-gradient(135deg, #f8f9fa, #e9ecef); border-radius: 12px; margin-bottom: 20px;">
+          <p style="font-size: clamp(1.1em, 3vw, 1.5em); color: #667eea; margin: 5px 0;">
+            <strong>${winResult.winType}</strong>
+          </p>
+          <p style="font-size: clamp(1.4em, 4vw, 2em); color: #764ba2; margin: 8px 0;">
+            <strong>${winResult.fans} 番</strong>
+          </p>
+          <p style="font-size: clamp(1em, 2.5vw, 1.2em); color: #666; margin: 5px 0;">
+            ${winResult.pattern}
+          </p>
+        </div>
+      </div>
+      
+      <!-- 各玩家手牌展示 -->
+      <div style="margin-bottom: 15px; overflow-x: auto;">
+        <h3 style="text-align: center; margin-bottom: 10px; color: #333; font-size: 1.1em;">最終手牌（點擊展開）</h3>
+        <div style="display: flex; gap: 8px; justify-content: center; min-width: min-content;">
+          ${gameState.players.map((p, idx) => `
+            <div id="player-card-${idx}" style="flex: 0 0 auto; width: 100px; padding: 8px; background: ${idx === winner ? '#e8f5e9' : '#f9f9f9'}; border-radius: 6px; border: ${idx === winner ? '2px solid #4CAF50' : '2px solid #ddd'}; cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent;" onclick="togglePlayerHand(${idx})">
+              <div style="text-align: center;">
+                <div style="font-weight: bold; color: ${idx === winner ? '#2e7d32' : '#666'}; font-size: 0.85em; margin-bottom: 4px;">
+                  ${p.name.substring(0, 3)} ${idx === winner ? '🏆' : ''}
+                </div>
+                <div style="font-size: 0.75em; color: #888; line-height: 1.3;">
+                  🃏${p.hand.length}
+                  ${p.melds.length > 0 ? `+${p.melds.length}組` : ''}
+                </div>
+                <div style="font-size: 1.2em; margin-top: 4px;">
+                  <span id="toggle-icon-${idx}">👇</span>
+                </div>
+              </div>
+              <div id="player-hand-${idx}" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid ${idx === winner ? '#4CAF50' : '#ddd'};">
+                <div style="display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; margin-bottom: 6px;">
+                  ${p.hand.map(tile => `<span style="padding: 4px 6px; background: white; border: 1px solid #ddd; border-radius: 3px; font-size: 0.75em;">${tileDisplay[tile]}</span>`).join('')}
+                </div>
+                ${p.melds.length > 0 ? `
+                  <div style="margin-top: 6px; font-size: 0.7em;">
+                    <strong style="color: #666;">組：</strong>
+                    <div style="display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px;">
+                      ${p.melds.map(m => `<span style="padding: 2px 4px; background: #e3f2fd; border-radius: 3px; font-size: 0.85em;">${m.tiles.map(t => tileDisplay[t]).join(' ')}</span>`).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      
+      <!-- 按鈕 -->
+      <div style="text-align: center; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 15px;">
+        <button id="restartBtn" style="padding: 12px 30px; font-size: clamp(0.95em, 2.5vw, 1.1em); background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.2s; -webkit-tap-highlight-color: transparent; min-width: 120px;">
+          🔄 再來一局
+        </button>
+        <button id="menuBtn" style="padding: 12px 30px; font-size: clamp(0.95em, 2.5vw, 1.1em); background: #f0f0f0; color: #333; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: transform 0.2s; -webkit-tap-highlight-color: transparent; min-width: 120px;">
+          🏠 返回菜單
+        </button>
+      </div>
+    </div>
+  `
+  
+  // 綁定按鈕事件（確保在手機端也能正常工作）
+  const restartBtn = document.getElementById('restartBtn')
+  const menuBtn = document.getElementById('menuBtn')
+  
+  if (restartBtn) {
+    restartBtn.addEventListener('click', () => {
+      console.log('🔄 點擊「再來一局」')
+      startGame()
+    })
+  }
+  
+  if (menuBtn) {
+    menuBtn.addEventListener('click', () => {
+      console.log('🏠 點擊「返回菜單」')
+      showMenu()
+    })
+  }
 }
 
 function showMenu() {
@@ -132,7 +316,7 @@ function showRules() {
 1. 摸牌
 2. 出牌
 3. 應對（碰/槓/吃）
-4. 和牌
+4. 胡牌
 
 💰 計分
 - 平胡：100 分起
@@ -140,7 +324,9 @@ function showRules() {
 }
 
 function startGame() {
-  // 初始化遊戲
+  // 先重置 WASM 狀態（清空牌堆），再初始化
+  const resetResult = GameEngine.resetGame()
+  console.log('🔄 GoResetGame 結果:', resetResult)
   const result = GameEngine.initGame()
   console.log('✓ 遊戲初始化:', result)
 
@@ -152,11 +338,28 @@ function startGame() {
 
   // 給每個玩家初始 16 張牌
   for (let playerIdx = 0; playerIdx < 4; playerIdx++) {
-    for (let i = 0; i < 16; i++) {
-      const tile = GameEngine.drawTile() as any
-      if (tile && tile.tile) {
-        gameState.players[playerIdx].hand.push(tile.tile)
-        gameState.tileCount = tile.remaining || 0
+    // 開發模式：給玩家 0 測試手牌（13 張 + 3 張發財）
+    // ⚠️ 注意：此測試手牌未從牌堆移除對應牌張，可能違反「一牌四張」規則
+    // 僅供測試胡牌邏輯使用，正式版需移除或實作 removeTile API
+    if (playerIdx === 0) {
+      // 開發模式：指定測試手牌，並從牌堆精確移除對應牌張
+      gameState.players[0].hand = ['1m', '1m', '1m', '2m', '3m', '4m', '5m', '6m', '7m', '8m', '9m', '9m', '9m', 'F', 'F', 'F']
+      console.log('🎴 開發模式：給玩家測試手牌（16張，摸牌後17張可自摸）:', gameState.players[0].hand)
+      // 從牌堆精確移除手牌中的每張牌（保證一致性，不會超過 4 張上限）
+      for (const tile of gameState.players[0].hand) {
+        const result = GameEngine.removeTile(tile) as any
+        if (result && !result.removed) {
+          console.warn(`⚠️ 牌堆中找不到 ${tile}，可能已超出上限`)
+        }
+      }
+    } else {
+      // AI 正常發牌
+      for (let i = 0; i < 16; i++) {
+        const tile = GameEngine.drawTile() as any
+        if (tile && tile.tile) {
+          gameState.players[playerIdx].hand.push(tile.tile)
+          gameState.tileCount = tile.remaining || 0
+        }
       }
     }
     // 排序手牌
@@ -191,14 +394,20 @@ function showGameBoard() {
   const currentDiscardPoolLength = gameState.discardPool.length
   const hasNewDiscard = currentDiscardPoolLength > lastDiscardPoolLength
   
+  // 檢查是否有重要狀態變化（例如碰牌後進入出牌階段）
+  const isImportantStateChange = gameState.gamePhase === 'discard' && gameState.currentPlayerIdx === 0
+  
   console.log(`🎨 呼叫 showGameBoard (第 ${renderCount} 次)`, {
     捨牌池長度: currentDiscardPoolLength,
     上次長度: lastDiscardPoolLength,
-    有新捨牌: hasNewDiscard
+    有新捨牌: hasNewDiscard,
+    重要狀態變化: isImportantStateChange,
+    gamePhase: gameState.gamePhase,
+    currentPlayerIdx: gameState.currentPlayerIdx
   })
   
-  // 如果已經有待處理的渲染，且沒有新捨牌，跳過
-  if (renderPending && !hasNewDiscard) {
+  // 如果已經有待處理的渲染，且沒有新捨牌，且不是重要狀態變化，跳過
+  if (renderPending && !hasNewDiscard && !isImportantStateChange) {
     console.log(`⏭️  跳過渲染（已有待處理的渲染）`)
     return
   }
@@ -215,6 +424,12 @@ function showGameBoard() {
 }
 
 function renderGameBoardNow() {
+  // 檢查是否遊戲結束
+  if (gameState.gamePhase === 'end') {
+    showGameEndScreen()
+    return
+  }
+  
   // 其他 3 個玩家的區域（上、左、右）
   const aiPlayers = gameState.players.filter((_, idx) => idx !== 0)
   const currentPlayer = gameState.players[gameState.currentPlayerIdx]
@@ -222,6 +437,14 @@ function renderGameBoardNow() {
   
   // 检查玩家是否可以出牌
   const canDiscard = gameController?.canPlayerDiscard() || false
+  
+  console.log('🎯 renderGameBoardNow canDiscard:', canDiscard, {
+    gamePhase: gameState.gamePhase,
+    currentPlayerIdx: gameState.currentPlayerIdx,
+    waitingForResponse: gameState.waitingForResponse,
+    humanHandLength: humanPlayer.hand.length,
+    humanCanAction: humanPlayer.canAction
+  })
   
   // 检查玩家是否有响应权
   const hasResponseRight = humanPlayer.canAction
@@ -261,6 +484,52 @@ function renderGameBoardNow() {
       console.log('🟠 高亮碰牌:', highlightTile)
     }
   }
+
+  const meldsHtml = humanPlayer.melds.length > 0 ? `
+    <div class="player-hand-melds">
+      <strong class="player-hand-melds-title">已組牌：</strong>
+      <div class="player-hand-melds-list">
+        ${renderMeldsHTML(humanPlayer.melds)}
+      </div>
+    </div>
+  ` : ''
+
+  const winPanelHtml = canWinAfterDraw && winResultAfterDraw ? `
+    <div class="response-panel response-panel--win" style="margin-bottom: 15px; padding: 15px; background: #e8f5e9; border: 3px solid #4CAF50; border-radius: 8px; animation: pulse 1.5s ease-in-out infinite;">
+      <strong class="response-title" style="color: #2e7d32; font-size: 1.2em;">🏆 可以胡牌！</strong>
+      <p class="response-subtitle" style="color: #2e7d32; margin: 8px 0;">番數：${winResultAfterDraw.fans} 番 | 牌型：${winResultAfterDraw.pattern}</p>
+      <div class="response-actions response-actions--duo" style="display: flex; gap: 10px; margin-top: 10px;">
+        <button class="response-button response-button--win" type="button" onclick="playerWin()" style="padding: 12px 24px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1.1em; flex: 1;">
+          🎉 胡牌
+        </button>
+        <button class="response-button response-button--pass" type="button" onclick="playerPass()" style="padding: 12px 24px; background: #9e9e9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+          ⏭️ 過
+        </button>
+      </div>
+    </div>
+    <style>
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+      }
+    </style>
+  ` : ''
+
+  const responsePanelHtml = hasResponseRight ? `
+    <div class="response-panel response-panel--notice" style="margin-bottom: 15px; padding: 15px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 6px;">
+      <strong class="response-title" style="color: #856404;">⚡ 你可以響應！</strong>
+      <div class="response-actions response-actions--multi" style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+        ${availableActions.includes('win') ? `<button class="response-button response-button--win" type="button" onclick="playerResponse('win')" style="padding: 8px 16px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🎉 胡牌</button>` : ''}
+        ${availableActions.includes('kong') ? `<button class="response-button response-button--kong" type="button" onclick="playerResponse('kong')" style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 槓</button>` : ''}
+        ${availableActions.includes('pong') ? `<button class="response-button response-button--pong" type="button" onclick="playerResponse('pong')" style="padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🤝 碰</button>` : ''}
+        ${availableActions.includes('chow') ? `<button class="response-button response-button--chow" type="button" onclick="playerResponse('chow')" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">➡️ 吃</button>` : ''}
+        <button class="response-button response-button--pass" type="button" onclick="playerResponse('pass')" style="padding: 8px 16px; background: #9e9e9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">⏭️ 過</button>
+      </div>
+    </div>
+  ` : ''
+
+  const handInfoHtml = [meldsHtml, winPanelHtml, responsePanelHtml].filter(Boolean).join('')
+  const handInfoSection = handInfoHtml ? `<div class="player-hand-info">${handInfoHtml}</div>` : ''
 
   app.innerHTML = `
     <div id="game-container">
@@ -319,53 +588,12 @@ function renderGameBoardNow() {
             你的手牌（${humanPlayer.hand.length} 張）
             ${humanPlayer.melds.length > 0 ? ` + ${humanPlayer.melds.length} 組` : ''}
           </h3>
+          <div style="font-size: 0.7em; color: #666; margin-top: 4px;">
+            階段: ${gameState.gamePhase} | 當前玩家: ${gameState.currentPlayerIdx} | 可出牌: ${canDiscard ? '✅' : '❌'} | 響應中: ${gameState.waitingForResponse ? '⏳' : '✅'}
+          </div>
         </div>
         
-        <!-- 碰杠吃的牌组 -->
-        ${humanPlayer.melds.length > 0 ? `
-          <div style="margin-bottom: 15px;">
-            <strong style="color: #666; display: block; margin-bottom: 8px;">已組牌：</strong>
-            <div style="display: flex; flex-wrap: wrap; gap: 12px;">
-              ${renderMeldsHTML(humanPlayer.melds)}
-            </div>
-          </div>
-        ` : ''}
-        
-        <!-- 自摸和牌按钮 -->
-        ${canWinAfterDraw && winResultAfterDraw ? `
-          <div class="response-panel response-panel--win" style="margin-bottom: 15px; padding: 15px; background: #e8f5e9; border: 3px solid #4CAF50; border-radius: 8px; animation: pulse 1.5s ease-in-out infinite;">
-            <strong class="response-title" style="color: #2e7d32; font-size: 1.2em;">🏆 可以和牌！</strong>
-            <p class="response-subtitle" style="color: #2e7d32; margin: 8px 0;">番數：${winResultAfterDraw.fans} 番 | 牌型：${winResultAfterDraw.pattern}</p>
-            <div class="response-actions response-actions--duo" style="display: flex; gap: 10px; margin-top: 10px;">
-              <button class="response-button response-button--win" type="button" onclick="playerWin()" style="padding: 12px 24px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1.1em; flex: 1;">
-                🎉 和牌
-              </button>
-              <button class="response-button response-button--pass" type="button" onclick="playerPass()" style="padding: 12px 24px; background: #9e9e9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
-                ⏭️ 過
-              </button>
-            </div>
-          </div>
-          <style>
-            @keyframes pulse {
-              0%, 100% { transform: scale(1); }
-              50% { transform: scale(1.02); }
-            }
-          </style>
-        ` : ''}
-        
-        <!-- 响应按钮 -->
-        ${hasResponseRight ? `
-          <div class="response-panel response-panel--notice" style="margin-bottom: 15px; padding: 15px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 6px;">
-            <strong class="response-title" style="color: #856404;">⚡ 你可以響應！</strong>
-            <div class="response-actions response-actions--multi" style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
-              ${availableActions.includes('win') ? '<button class="response-button response-button--win" type="button" onclick="playerResponse(\\\'win\\\')" style="padding: 8px 16px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🎉 和牌</button>' : ''}
-              ${availableActions.includes('kong') ? '<button class="response-button response-button--kong" type="button" onclick="playerResponse(\\\'kong\\\')" style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 槓</button>' : ''}
-              ${availableActions.includes('pong') ? '<button class="response-button response-button--pong" type="button" onclick="playerResponse(\\\'pong\\\')" style="padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🤝 碰</button>' : ''}
-              ${availableActions.includes('chow') ? '<button class="response-button response-button--chow" type="button" onclick="playerResponse(\\\'chow\\\')" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">➡️ 吃</button>' : ''}
-              <button class="response-button response-button--pass" type="button" onclick="playerResponse('pass')" style="padding: 8px 16px; background: #9e9e9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">⏭️ 過</button>
-            </div>
-          </div>
-        ` : ''}
+        ${handInfoSection}
         
         <!-- 手牌 -->
         <div class="player-hand-tiles">
@@ -394,7 +622,7 @@ function getStatusMessage(
   
   if (currentPlayerIdx === 0) {
     if (canWinAfterDraw && winResultAfterDraw) {
-      return `<span style="color: #4CAF50; font-size: 1.2em;">🏆 可以和牌！(${winResultAfterDraw.fans} 番)</span>`
+      return `<span style="color: #4CAF50; font-size: 1.2em;">🏆 可以胡牌！(${winResultAfterDraw.fans} 番)</span>`
     } else if (canDiscard) {
       return '<span style="color: #4CAF50; font-size: 1.1em;">👉 請點擊手牌出牌</span>'
     } else if (phase === 'draw') {
@@ -448,10 +676,13 @@ function selectTile(idx: number) {
 }
 
 async function playerResponse(action: string) {
-  if (!gameController) {
-    console.warn('游戏控制器未初始化')
-    return
-  }
+  try {
+    if (!gameController) {
+      console.warn('游戏控制器未初始化')
+      return
+    }
+    
+    console.log('🎮 playerResponse 被調用:', { action, lastDiscardedTile: gameState.lastDiscardedTile })
   
   // 如果是「過」，先觸發當下牌滑至側邊動畫（立即執行）
   if (action === 'pass') {
@@ -466,19 +697,32 @@ async function playerResponse(action: string) {
     const humanPlayer = gameState.players[0]
     const options = getChowOptions(humanPlayer.hand, gameState.lastDiscardedTile)
     
+    console.log('🍴 吃牌選項:', { 
+      手牌: humanPlayer.hand, 
+      目標牌: gameState.lastDiscardedTile,
+      選項數量: options.length,
+      選項: options 
+    })
+    
     if (options.length === 0) {
+      console.error('❌ 無法吃牌：沒有可用選項')
       alert('无法吃牌')
       return
     }
     
     // 如果有多个选项，显示选择对话框
     if (options.length > 1) {
+      console.log('🔄 顯示吃牌選擇器（多個選項）')
       const selectedTiles = await showChowSelector(options)
       
+      console.log('📋 用戶選擇:', selectedTiles)
+      
       if (selectedTiles) {
+        console.log('✅ 執行吃牌:', selectedTiles)
         gameController.playerResponse('chow', selectedTiles)
       } else {
         // 玩家選擇過
+        console.log('⏭️ 用戶選擇過')
         const centerHighlight = document.querySelector('.discard-highlight-center')
         if (centerHighlight && !centerHighlight.classList.contains('animate-to-side')) {
           centerHighlight.classList.add('animate-to-side', 'manual')
@@ -487,10 +731,16 @@ async function playerResponse(action: string) {
       }
     } else {
       // 只有一种吃法，直接执行
+      console.log('✅ 只有一種吃法，直接執行:', options[0].tiles)
       gameController.playerResponse('chow', options[0].tiles)
     }
   } else {
+    console.log('🎯 執行其他動作:', action)
     gameController.playerResponse(action as any)
+  }
+  } catch (error) {
+    console.error('❌ playerResponse 錯誤:', error)
+    alert(`操作失敗: ${error}`)
   }
 }
 
@@ -523,7 +773,51 @@ Object.assign(window, {
   playerResponse,
   playerWin,
   playerPass,
+  togglePlayerHand,
 })
 
 // 啟動應用
 init()
+
+// 吃牌選擇器的全局函數
+function selectChowOption(index: number) {
+  if (!gameController) {
+    console.warn('游戏控制器未初始化')
+    return
+  }
+  
+  const lastDiscard = gameState.lastDiscardedTile
+  if (!lastDiscard) return
+  
+  const humanPlayer = gameState.players[0]
+  const options = getChowOptions(humanPlayer.hand, lastDiscard)
+  
+  if (index >= 0 && index < options.length) {
+    // 隱藏選擇器
+    const overlay = document.getElementById('chowSelectorOverlay')
+    if (overlay) overlay.remove()
+    
+    // 執行吃牌
+    gameController.playerResponse('chow', options[index].tiles)
+  }
+}
+
+function passChow() {
+  if (!gameController) {
+    console.warn('游戏控制器未初始化')
+    return
+  }
+  
+  // 隱藏選擇器
+  const overlay = document.getElementById('chowSelectorOverlay')
+  if (overlay) overlay.remove()
+  
+  // 執行過
+  gameController.playerResponse('pass')
+}
+
+// 更新全局函數
+Object.assign(window, {
+  selectChowOption,
+  passChow,
+})

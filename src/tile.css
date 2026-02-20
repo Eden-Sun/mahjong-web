@@ -1,10 +1,30 @@
-/* 麻将牌卡样式 */
+/* 麻将牌卡样式 - 性能優化版 */
+
+/* CSS 變量 - 便於響應式調整 */
+:root {
+  /* 桌面端默認尺寸 */
+  --tile-width: 52px;
+  --tile-height: 70px;
+  --tile-font-size: 22px;
+  --tile-suit-size: 11px;
+  --tile-gap: 6px;
+  --tile-border-width: 2px;
+  --tile-radius: 8px;
+  
+  /* 已組牌尺寸 */
+  --meld-tile-width: 44px;
+  --meld-tile-height: 58px;
+  --meld-font-size: 18px;
+  --meld-suit-size: 9px;
+}
 
 .tile {
-  width: 60px;
-  height: 80px;
-  border: 3px solid #333;
-  border-radius: 6px;
+  width: var(--tile-width);
+  height: var(--tile-height);
+  min-width: 44px;  /* 確保最小觸控區域 */
+  min-height: 44px;
+  border: var(--tile-border-width) solid #444;
+  border-radius: var(--tile-radius);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -12,59 +32,111 @@
   font-weight: bold;
   cursor: pointer;
   position: relative;
-  background: white;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s;
+  background: linear-gradient(145deg, #ffffff 0%, #f5f5f5 50%, #e8e8e8 100%);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.15),
+    0 4px 8px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  /* 性能優化：只 transition transform 和 box-shadow，避免重繪 */
+  transition-property: transform, box-shadow;
+  transition-duration: 0.15s;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  /* 性能優化：GPU 加速 */
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  touch-action: manipulation;
 }
 
 /* 牌类颜色 */
-.tile.tile-m { --color: #d32f2f; }
-.tile.tile-p { --color: #1976d2; }
-.tile.tile-s { --color: #388e3c; }
-.tile.tile-E, .tile.tile-S, .tile.tile-W, .tile.tile-N { --color: #f57f17; }
-.tile.tile-B, .tile.tile-F, .tile.tile-Z { --color: #7b1fa2; }
+.tile.tile-m { --color: #c62828; }
+.tile.tile-p { --color: #1565c0; }
+.tile.tile-s { --color: #2e7d32; }
+.tile.tile-E, .tile.tile-S, .tile.tile-W, .tile.tile-N { --color: #e65100; }
+.tile.tile-B { --color: #666; }
+.tile.tile-F { --color: #2e7d32; }  /* 發財 - 綠色 */
+.tile.tile-Z { --color: #c62828; }  /* 紅中 - 紅色 */
 
 /* 牌面元素 */
 .tile-suit {
-  font-size: 12px;
+  font-size: var(--tile-suit-size);
   color: var(--color);
-  font-weight: bold;
-  margin-bottom: 2px;
+  font-weight: 700;
+  margin-bottom: 1px;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
 }
 
 .tile-number {
-  font-size: 24px;
+  font-size: var(--tile-font-size);
   color: var(--color);
   line-height: 1;
+  font-weight: 700;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
 }
 
-/* 悬停效果 */
-.tile:hover:not(.disabled) {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+/* 懸停效果 (桌面) */
+@media (hover: hover) {
+  .tile:hover:not(.disabled) {
+    transform: translateY(-6px);
+    box-shadow: 
+      0 8px 16px rgba(0, 0, 0, 0.25),
+      0 12px 24px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    border-color: #333;
+  }
+}
+
+/* 觸控反饋 (手機) - 優化觸控區域和反饋 */
+@media (hover: none) {
+  .tile {
+    /* 確保觸控區域足夠大 */
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .tile:active:not(.disabled) {
+    transform: scale(0.92);
+    box-shadow: 
+      0 1px 2px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    background: linear-gradient(145deg, #f0f0f0 0%, #e5e5e5 50%, #d8d8d8 100%);
+  }
 }
 
 /* 禁用状态 */
 .tile.disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
   pointer-events: none;
+  filter: grayscale(20%);
 }
 
 /* 新摸的牌 - 金色边框 + 发光效果 */
 .tile.new-draw {
   border: 3px solid #FFD700;
-  box-shadow: 0 0 8px #FFD700, 0 4px 8px rgba(0, 0, 0, 0.2);
-  animation: glow 1.5s ease-in-out infinite alternate;
+  background: linear-gradient(145deg, #fffef5 0%, #fff9e0 50%, #fff3c0 100%);
+  box-shadow: 
+    0 0 12px rgba(255, 215, 0, 0.6),
+    0 4px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  animation: glow 1.2s ease-in-out infinite alternate;
 }
 
 @keyframes glow {
   from {
-    box-shadow: 0 0 8px #FFD700, 0 4px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 
+      0 0 12px rgba(255, 215, 0, 0.6),
+      0 4px 8px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
   to {
-    box-shadow: 0 0 16px #FFD700, 0 4px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 
+      0 0 20px rgba(255, 215, 0, 0.8),
+      0 6px 12px rgba(0, 0, 0, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
 }
 
@@ -72,37 +144,147 @@
 .hand-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  min-height: 80px;
+  gap: var(--tile-gap);
+  min-height: calc(var(--tile-height) + 10px);
   align-content: flex-start;
+  padding: 4px;
 }
 
 /* 牌组容器（碰杠吃） */
 .melds-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 15px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .meld-group {
   display: flex;
-  gap: 4px;
-  padding: 8px;
-  background: #f5f5f5;
+  gap: 3px;
+  padding: 6px 8px;
+  background: linear-gradient(145deg, #f8f8f8, #e8e8e8);
   border: 2px solid #4CAF50;
-  border-radius: 6px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .meld-group .tile {
-  width: 50px;
-  height: 65px;
+  width: var(--meld-tile-width);
+  height: var(--meld-tile-height);
+  min-width: 36px;
+  min-height: 44px;
 }
 
 .meld-group .tile-number {
-  font-size: 20px;
+  font-size: var(--meld-font-size);
 }
 
 .meld-group .tile-suit {
-  font-size: 10px;
+  font-size: var(--meld-suit-size);
+}
+
+/* ========== 響應式牌卡尺寸 ========== */
+
+/* 大螢幕 (桌面 1200px+) */
+@media (min-width: 1200px) {
+  :root {
+    --tile-width: 56px;
+    --tile-height: 75px;
+    --tile-font-size: 24px;
+    --tile-suit-size: 12px;
+    --tile-gap: 8px;
+    --meld-tile-width: 48px;
+    --meld-tile-height: 64px;
+    --meld-font-size: 20px;
+    --meld-suit-size: 10px;
+  }
+}
+
+/* 平板 (768px - 1024px) */
+@media (max-width: 1024px) {
+  :root {
+    --tile-width: 48px;
+    --tile-height: 64px;
+    --tile-font-size: 20px;
+    --tile-suit-size: 10px;
+    --tile-gap: 5px;
+    --meld-tile-width: 42px;
+    --meld-tile-height: 56px;
+    --meld-font-size: 17px;
+    --meld-suit-size: 9px;
+  }
+}
+
+/* 大手機 (480px - 768px) */
+@media (max-width: 768px) {
+  :root {
+    --tile-width: 44px;
+    --tile-height: 58px;
+    --tile-font-size: 18px;
+    --tile-suit-size: 9px;
+    --tile-gap: 4px;
+    --tile-border-width: 2px;
+    --meld-tile-width: 38px;
+    --meld-tile-height: 50px;
+    --meld-font-size: 16px;
+    --meld-suit-size: 8px;
+  }
+  
+  .meld-group {
+    padding: 5px 6px;
+    gap: 2px;
+  }
+}
+
+/* 小手機 (< 480px) */
+@media (max-width: 480px) {
+  :root {
+    --tile-width: 40px;
+    --tile-height: 52px;
+    --tile-font-size: 16px;
+    --tile-suit-size: 8px;
+    --tile-gap: 3px;
+    --tile-border-width: 1.5px;
+    --tile-radius: 6px;
+    --meld-tile-width: 34px;
+    --meld-tile-height: 46px;
+    --meld-font-size: 14px;
+    --meld-suit-size: 7px;
+  }
+  
+  .meld-group {
+    padding: 4px 5px;
+    gap: 2px;
+    border-radius: 6px;
+  }
+}
+
+/* 超小螢幕 (< 360px) */
+@media (max-width: 360px) {
+  :root {
+    --tile-width: 36px;
+    --tile-height: 48px;
+    --tile-font-size: 15px;
+    --tile-suit-size: 7px;
+    --tile-gap: 2px;
+    --meld-tile-width: 32px;
+    --meld-tile-height: 42px;
+    --meld-font-size: 13px;
+    --meld-suit-size: 6px;
+  }
+}
+
+/* 橫屏模式優化 */
+@media (max-width: 812px) and (orientation: landscape) {
+  :root {
+    --tile-width: 38px;
+    --tile-height: 50px;
+    --tile-font-size: 16px;
+    --tile-suit-size: 8px;
+    --tile-gap: 3px;
+    --meld-tile-width: 34px;
+    --meld-tile-height: 44px;
+    --meld-font-size: 14px;
+    --meld-suit-size: 7px;
+  }
 }

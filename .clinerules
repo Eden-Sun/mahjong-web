@@ -1,0 +1,33 @@
+# Claude Code Tasks for MJ Web
+
+## Dev Server Management
+
+### Start Dev Server
+```bash
+bash /home/r7/mj-web/start-dev.sh
+```
+
+### Check Dev Server Status
+```bash
+curl -s http://localhost:5173 && echo "✅ Server is running" || echo "❌ Server is down"
+```
+
+### Restart Dev Server (tmux background)
+```bash
+tmux kill-session -t mj-web 2>/dev/null
+tmux new-session -d -s mj-web
+tmux send-keys -t mj-web "bash /home/r7/mj-web/start-dev.sh" Enter
+```
+
+### View Dev Server Logs
+```bash
+tmux attach -t mj-web
+# Press Ctrl+B then D to detach
+```
+
+## Quick Commands
+
+When I need to restart the dev server, just run:
+```bash
+tmux kill-session -t mj-web 2>/dev/null && tmux new-session -d -s mj-web && tmux send-keys -t mj-web "bash /home/r7/mj-web/start-dev.sh" Enter
+```

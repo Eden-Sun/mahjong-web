@@ -96,6 +96,10 @@ export class GameEngine {
     return callWasmFunction('GoDrawTile');
   }
 
+  static removeTile(tile: string) {
+    return callWasmFunction('GoRemoveTile', tile);
+  }
+
   static checkWin() {
     return callWasmFunction('GoCheckWin');
   }
