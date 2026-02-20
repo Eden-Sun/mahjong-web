@@ -340,8 +340,8 @@ export class GameController {
       actions.push('win')
     }
     
-    // 检查杠
-    if (canKong(player.hand, tile)) {
+    // 检查槓（上家牌不能大明槓，只有非下家方向才可以）
+    if (canKong(player.hand, tile) && !isNextPlayer) {
       actions.push('kong')
     }
     
@@ -481,6 +481,9 @@ export class GameController {
           // 如果是玩家，保存新摸的牌（UI 高亮用）
           if (player.isHuman) {
             this.drawnTile = drawnTile
+            // 明槓不能自摸，清除自摸胡牌狀態
+            this.canWinAfterDraw = false
+            this.winResultAfterDraw = null
           }
           
           console.log('🔶 補牌後手牌:', player.hand.length, '張')
