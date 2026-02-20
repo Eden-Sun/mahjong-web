@@ -276,10 +276,11 @@ export class GameController {
     // 收集所有玩家的响应
     const responses: ResponseAction[] = []
     
-    // 检查其他 3 个玩家（逆時針順序）
-    // i=1 → +1 (順時針第1位)
-    // i=2 → +2 (順時針第2位)
-    // i=3 → +3 (逆時針下一家，可以吃)
+    // 檢查其他 3 個玩家（逆時針順序）
+    // 逆時針：0→1→2→3→0，下家 = +1，對家 = +2，上家 = +3
+    // i=1 → 下家（右邊，可以吃、不能槓上家牌）
+    // i=2 → 對家
+    // i=3 → 上家（左邊）
     for (let i = 1; i <= 3; i++) {
       const playerIdx = (discardPlayerIdx + i) % 4
       
@@ -290,7 +291,7 @@ export class GameController {
       }
       
       const player = this.state.players[playerIdx]
-      const isNextPlayer = (i === 3)  // 逆時針的下一家
+      const isNextPlayer = (i === 1)  // 下家（右邊）才能吃，且不能槓上家牌
       
       if (player.isHuman) {
         // 人类玩家 - 检查可用动作
