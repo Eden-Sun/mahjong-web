@@ -241,8 +241,8 @@ export function renderMeldsHTML(melds: Meld[]): string {
     const tilesHTML = meld.tiles.map(tile => {
       const tileClass = getTileClass(tile)
       return `
-        <div class="tile ${tileClass} disabled" data-tile="${tile}" style="width: 50px; height: 65px;">
-          <div class="tile-emoji" style="font-size: 28px;">${tileToEmoji(tile)}</div>
+        <div class="tile ${tileClass} disabled" data-tile="${tile}">
+          <div class="tile-emoji">${tileToEmoji(tile)}</div>
         </div>
       `
     }).join('')
