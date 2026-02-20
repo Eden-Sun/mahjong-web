@@ -23,7 +23,12 @@ export interface WinContext {
   isRobKong?: boolean      // 搶槓
 }
 
-type WaitType = 'two-sided' | 'edge' | 'closed' | 'pair' | 'full-claim'
+// 獨聽子類型
+// 緊聽：1-2 聽 3（低端邊張）
+// 騎壁：8-9 聽 7（高端邊張）
+// 中洞：x-(x+2) 聽 x+1（嵌張）
+// 單吊：缺眼單張等配對
+type WaitType = 'two-sided' | 'jin-ting' | 'qi-bi' | 'zhong-dong' | 'dan-diao' | 'full-claim'
 
 const SUIT_TILES = ['m', 's', 'p']
 const HONOR_TILES = ['E', 'S', 'W', 'N', 'B', 'F', 'Z']
@@ -163,24 +168,26 @@ function detectWaitType(
 
   // ── 只有 1 種可胡 → 獨聽，判斷子類型 ──
 
-  // 單騎：手牌剩 1 張等配對（眼）
-  if (preWinHand.length === 1) return 'pair'
+  // 單吊：手牌剩 1 張等配對（眼）
+  if (preWinHand.length === 1) return 'dan-diao'
 
   if (winTile.match(/^[1-9][msp]$/)) {
     const suit = winTile[1]
     const num = parseInt(winTile[0])
 
-    // 嵌張（中洞）：x-(x+2) 聽 x+1
+    // 中洞（嵌張）：x-(x+2) 聽 x+1
     if (preWinHand.includes(`${num - 1}${suit}`) &&
-        preWinHand.includes(`${num + 1}${suit}`)) return 'closed'
+        preWinHand.includes(`${num + 1}${suit}`)) return 'zhong-dong'
 
-    // 邊張：1-2 聽 3，或 8-9 聽 7
-    if ((num === 3 && preWinHand.includes(`1${suit}`) && preWinHand.includes(`2${suit}`)) ||
-        (num === 7 && preWinHand.includes(`8${suit}`) && preWinHand.includes(`9${suit}`))) return 'edge'
+    // 緊聽：低端邊張，1-2 聽 3
+    if (num === 3 && preWinHand.includes(`1${suit}`) && preWinHand.includes(`2${suit}`)) return 'jin-ting'
+
+    // 騎壁：高端邊張，8-9 聽 7
+    if (num === 7 && preWinHand.includes(`8${suit}`) && preWinHand.includes(`9${suit}`)) return 'qi-bi'
   }
 
-  // 字牌或其他單騎
-  return 'pair'
+  // 字牌或複合等待 → 單吊
+  return 'dan-diao'
 }
 
 // ═══════════════════════════════════════
@@ -337,9 +344,16 @@ export function calculateFans(
   // 5. 獨聽
   // ─────────────────────────────────────
 
-  if (waitType === 'pair' || waitType === 'edge' || waitType === 'closed') {
+  const DUTING_TYPES: WaitType[] = ['jin-ting', 'qi-bi', 'zhong-dong', 'dan-diao']
+  if (DUTING_TYPES.includes(waitType)) {
     fans += 1
-    const waitName = waitType === 'pair' ? '單騎' : waitType === 'edge' ? '邊張' : '嵌張'
+    const waitNameMap: Partial<Record<WaitType, string>> = {
+      'jin-ting':   '緊聽',
+      'qi-bi':      '騎壁',
+      'zhong-dong': '中洞',
+      'dan-diao':   '單吊',
+    }
+    const waitName = waitNameMap[waitType] ?? '獨聽'
     details.push(`獨聽（${waitName}）1台`)
   }
 
@@ -571,7 +585,7 @@ function isPingHu(
 ): boolean {
   if (winType === 'self-draw') return false      // 自摸無平胡
   if (melds.length > 0) return false             // 有吃碰槓無平胡
-  if (waitType !== 'two-sided') return false     // 非雙面無平胡
+  if (waitType !== 'two-sided') return false     // 獨聽（緊/壁/洞/吊）無平胡
   if (allTiles.some(t => HONOR_TILES.includes(t[t.length - 1]))) return false  // 有字牌
   if (getHandTriplets(hand).length > 0) return false  // 有刻子
   return true
