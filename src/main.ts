@@ -517,14 +517,13 @@ function renderGameBoardNow() {
   ` : ''
 
   const responsePanelHtml = hasResponseRight ? `
-    <div class="response-panel response-panel--notice" style="margin-bottom: 15px; padding: 15px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 6px;">
-      <strong class="response-title" style="color: #856404;">⚡ 你可以響應！</strong>
-      <div class="response-actions response-actions--multi" style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
-        ${availableActions.includes('win') ? `<button class="response-button response-button--win" type="button" onclick="playerResponse('win')" style="padding: 8px 16px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🎉 胡牌</button>` : ''}
-        ${availableActions.includes('kong') ? `<button class="response-button response-button--kong" type="button" onclick="playerResponse('kong')" style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🔄 槓</button>` : ''}
-        ${availableActions.includes('pong') ? `<button class="response-button response-button--pong" type="button" onclick="playerResponse('pong')" style="padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">🤝 碰</button>` : ''}
-        ${availableActions.includes('chow') ? `<button class="response-button response-button--chow" type="button" onclick="playerResponse('chow')" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">➡️ 吃</button>` : ''}
-        <button class="response-button response-button--pass" type="button" onclick="playerResponse('pass')" style="padding: 8px 16px; background: #9e9e9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">⏭️ 過</button>
+    <div class="response-panel" style="margin-bottom: 12px;">
+      <div class="response-actions" style="display: flex; gap: 8px; width: 100%;">
+        ${availableActions.includes('win')  ? `<button class="resp-btn resp-btn--win"  type="button" onclick="playerResponse('win')">胡</button>` : ''}
+        ${availableActions.includes('kong') ? `<button class="resp-btn resp-btn--kong" type="button" onclick="playerResponse('kong')">槓</button>` : ''}
+        ${availableActions.includes('pong') ? `<button class="resp-btn resp-btn--pong" type="button" onclick="playerResponse('pong')">碰</button>` : ''}
+        ${availableActions.includes('chow') ? `<button class="resp-btn resp-btn--chow" type="button" onclick="playerResponse('chow')">吃</button>` : ''}
+        <button class="resp-btn resp-btn--pass" type="button" onclick="playerResponse('pass')">過</button>
       </div>
     </div>
   ` : ''
