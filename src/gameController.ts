@@ -607,12 +607,11 @@ export class GameController {
   }
   
   /**
-   * 进入下一位玩家的回合（逆時針）
-   * 順序：上家(1) → 玩家(0) → 下家(3) → 對家(2) → 上家(1)
+   * 进入下一位玩家的回合（逆時針：0→1→2→3→0）
+   * 下家 = +1，上家 = +3
    */
   private async nextPlayer(): Promise<void> {
-    // 逆時針：+3 等同於 -1 (mod 4)
-    this.state.currentPlayerIdx = (this.state.currentPlayerIdx + 3) % 4
+    this.state.currentPlayerIdx = (this.state.currentPlayerIdx + 1) % 4
     this.state.gamePhase = 'draw'
     this.state.waitingForResponse = false
     this.state.lastDiscardedTile = null
