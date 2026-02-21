@@ -19,8 +19,8 @@ export function getAIResponse(
     return { action: 'win' }
   }
   
-  // 2. 检查是否可以杠（70% 概率杠）
-  if (canKong(player.hand, tile) && Math.random() < 0.7) {
+  // 2. 检查是否可以杠（70% 概率杠；上家捨牌不能大明槓）
+  if (canKong(player.hand, tile) && !isNextPlayer && Math.random() < 0.7) {
     return { action: 'kong' }
   }
   
