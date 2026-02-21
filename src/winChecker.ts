@@ -63,7 +63,7 @@ export function checkWin(
   }
 
   const meldCount = melds.length
-  const needMelds = 4 - meldCount   // 4 面子（不含雀頭），雀頭由 hasEye 旗標處理
+  const needMelds = 5 - meldCount   // 16 張麻將：5 副面子 + 1 對眼 = 17 張
 
   const canWin = canFormWinPattern(fullHand, needMelds)
 
@@ -147,7 +147,7 @@ function detectWaitType(
   melds: Meld[],
   winTile: string
 ): WaitType {
-  const needMelds = 4 - melds.length   // 4 面子，雀頭由 hasEye 處理
+  const needMelds = 5 - melds.length   // 16 張麻將：5 副面子，雀頭由 hasEye 處理
 
   // 全求：手牌只剩 1 張 且 melds 已滿 4 組
   if (preWinHand.length === 1 && melds.length >= 4) return 'full-claim'
