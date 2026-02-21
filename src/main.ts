@@ -755,14 +755,9 @@ function playerWin() {
 }
 
 function playerPass() {
-  if (!gameController) {
-    console.warn('游戏控制器未初始化')
-    return
-  }
-  
-  // 玩家选择不和，继续出牌
-  // 不做任何操作，玩家可以继续选择出牌
-  console.log('玩家选择过，继续出牌')
+  if (!gameController) return
+  // 放棄自摸胡牌，清除胡牌狀態，讓玩家繼續出牌
+  gameController.clearWinState()
 }
 
 // 全局函數

@@ -654,6 +654,15 @@ export class GameController {
   }
   
   /**
+   * 玩家放棄自摸胡牌，繼續出牌
+   */
+  clearWinState(): void {
+    this.canWinAfterDraw = false
+    this.winResultAfterDraw = null
+    this.updateState()
+  }
+
+  /**
    * 玩家自摸和牌
    */
   async playerWin(): Promise<void> {
