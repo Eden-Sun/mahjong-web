@@ -5,7 +5,7 @@ import './styles/layout.css'
 import './styles/mobile-optimized.css'
 import './debug' // 🐛 Mobile Debug Tool (僅 dev 環境)
 import { initWasm, GameEngine, lastWasmError } from './wasm'
-import { GameState, createInitialGameState, sortHand } from './gameState'
+import { GameState, PlayerAction, createInitialGameState, sortHand } from './gameState'
 import { GameController } from './gameController'
 import { renderHandHTML, renderMeldsHTML } from './tileRenderer'
 import { renderDiscardTimeline, resetDiscardAnimations } from './components/DiscardTimeline'
@@ -134,19 +134,13 @@ function showGameEndScreen() {
     const menuBtn = document.getElementById('menuBtn')
     
     if (restartBtn) {
-      restartBtn.addEventListener('click', () => {
-        console.log('🔄 點擊「再來一局」（流局）')
-        startGame()
-      })
+      restartBtn.addEventListener('click', () => startGame())
     }
-    
+
     if (menuBtn) {
-      menuBtn.addEventListener('click', () => {
-        console.log('🏠 點擊「返回菜單」（流局）')
-        showMenu()
-      })
+      menuBtn.addEventListener('click', () => showMenu())
     }
-    
+
     return
   }
   
@@ -243,17 +237,11 @@ function showGameEndScreen() {
   const menuBtn = document.getElementById('menuBtn')
   
   if (restartBtn) {
-    restartBtn.addEventListener('click', () => {
-      console.log('🔄 點擊「再來一局」')
-      startGame()
-    })
+    restartBtn.addEventListener('click', () => startGame())
   }
-  
+
   if (menuBtn) {
-    menuBtn.addEventListener('click', () => {
-      console.log('🏠 點擊「返回菜單」')
-      showMenu()
-    })
+    menuBtn.addEventListener('click', () => showMenu())
   }
 }
 
@@ -325,55 +313,29 @@ function showRules() {
 }
 
 function startGame() {
-  // 先重置 WASM 狀態（清空牌堆），再初始化
-  const resetResult = GameEngine.resetGame()
-  console.log('🔄 GoResetGame 結果:', resetResult)
-  const result = GameEngine.initGame()
-  console.log('✓ 遊戲初始化:', result)
+  GameEngine.resetGame()
+  GameEngine.initGame()
 
-  // 重置遊戲狀態
   gameState = createInitialGameState()
-  
-  // 重置捨牌動畫追蹤
   resetDiscardAnimations()
 
   // 給每個玩家初始 16 張牌
   for (let playerIdx = 0; playerIdx < 4; playerIdx++) {
-    // 開發模式：給玩家 0 測試手牌（13 張 + 3 張發財）
-    // ⚠️ 注意：此測試手牌未從牌堆移除對應牌張，可能違反「一牌四張」規則
-    // 僅供測試胡牌邏輯使用，正式版需移除或實作 removeTile API
-    if (playerIdx === 0) {
-      // 開發模式：指定測試手牌，並從牌堆精確移除對應牌張
-      gameState.players[0].hand = ['1m', '1m', '1m', '2m', '3m', '4m', '5m', '6m', '7m', '8m', '9m', '9m', '9m', 'F', 'F', 'F']
-      console.log('🎴 開發模式：給玩家測試手牌（16張，摸牌後17張可自摸）:', gameState.players[0].hand)
-      // 從牌堆精確移除手牌中的每張牌（保證一致性，不會超過 4 張上限）
-      for (const tile of gameState.players[0].hand) {
-        const result = GameEngine.removeTile(tile) as any
-        if (result && !result.removed) {
-          console.warn(`⚠️ 牌堆中找不到 ${tile}，可能已超出上限`)
-        }
-      }
-    } else {
-      // AI 正常發牌
-      for (let i = 0; i < 16; i++) {
-        const tile = GameEngine.drawTile() as any
-        if (tile && tile.tile) {
-          gameState.players[playerIdx].hand.push(tile.tile)
-          gameState.tileCount = tile.remaining || 0
-        }
+    for (let i = 0; i < 16; i++) {
+      const tile = GameEngine.drawTile() as any
+      if (tile && tile.tile) {
+        gameState.players[playerIdx].hand.push(tile.tile)
+        gameState.tileCount = tile.remaining || 0
       }
     }
-    // 排序手牌
     gameState.players[playerIdx].hand = sortHand(gameState.players[playerIdx].hand)
   }
 
-  // 创建游戏控制器
   gameController = new GameController(gameState, (newState) => {
     gameState = newState
     showGameBoard()
   })
 
-  console.log('✓ 遊戲開始')
   showGameBoard()
   
   // 自动开始第一轮（玩家摸牌）
@@ -384,40 +346,18 @@ function startGame() {
   }, 500)
 }
 
-let renderCount = 0
 let renderPending = false
 let lastDiscardPoolLength = 0
 
 function showGameBoard() {
-  renderCount++
-  
-  // 檢查是否有新的捨牌
   const currentDiscardPoolLength = gameState.discardPool.length
   const hasNewDiscard = currentDiscardPoolLength > lastDiscardPoolLength
-  
-  // 檢查是否有重要狀態變化（例如碰牌後進入出牌階段）
   const isImportantStateChange = gameState.gamePhase === 'discard' && gameState.currentPlayerIdx === 0
-  
-  console.log(`🎨 呼叫 showGameBoard (第 ${renderCount} 次)`, {
-    捨牌池長度: currentDiscardPoolLength,
-    上次長度: lastDiscardPoolLength,
-    有新捨牌: hasNewDiscard,
-    重要狀態變化: isImportantStateChange,
-    gamePhase: gameState.gamePhase,
-    currentPlayerIdx: gameState.currentPlayerIdx
-  })
-  
-  // 如果已經有待處理的渲染，且沒有新捨牌，且不是重要狀態變化，跳過
-  if (renderPending && !hasNewDiscard && !isImportantStateChange) {
-    console.log(`⏭️  跳過渲染（已有待處理的渲染）`)
-    return
-  }
-  
+
+  if (renderPending && !hasNewDiscard && !isImportantStateChange) return
+
   renderPending = true
-  
-  // 使用 requestAnimationFrame 確保每幀只渲染一次
   requestAnimationFrame(() => {
-    console.log(`✅ 執行渲染`)
     lastDiscardPoolLength = gameState.discardPool.length
     renderGameBoardNow()
     renderPending = false
@@ -438,15 +378,7 @@ function renderGameBoardNow() {
   
   // 检查玩家是否可以出牌
   const canDiscard = gameController?.canPlayerDiscard() || false
-  
-  console.log('🎯 renderGameBoardNow canDiscard:', canDiscard, {
-    gamePhase: gameState.gamePhase,
-    currentPlayerIdx: gameState.currentPlayerIdx,
-    waitingForResponse: gameState.waitingForResponse,
-    humanHandLength: humanPlayer.hand.length,
-    humanCanAction: humanPlayer.canAction
-  })
-  
+
   // 检查玩家是否有响应权
   const hasResponseRight = humanPlayer.canAction
   
@@ -469,22 +401,12 @@ function renderGameBoardNow() {
   let highlightTile: string | null = null
   let highlightType: 'chow' | 'pong' | null = null
   
-  console.log('🔍 高亮檢查:', { 
-    hasResponseRight, 
-    lastDiscardedTile: gameState.lastDiscardedTile,
-    availableActions,
-    discardPoolLength: gameState.discardPool.length,
-    currentTiles: gameState.discardPool.filter(d => d.isCurrentTile).map(d => d.tile)
-  })
-  
   if (hasResponseRight && gameState.lastDiscardedTile) {
     highlightTile = gameState.lastDiscardedTile
     if (availableActions.includes('chow')) {
       highlightType = 'chow'
-      console.log('🔴 高亮吃牌:', highlightTile)
     } else if (availableActions.includes('pong')) {
       highlightType = 'pong'
-      console.log('🟠 高亮碰牌:', highlightTile)
     }
   }
 
@@ -683,24 +605,13 @@ function renderAIPlayer(player: any, isCurrentPlayer: boolean = false, orientati
 
 
 function selectTile(idx: number) {
-  if (!gameController) {
-    console.warn('游戏控制器未初始化')
-    return
-  }
-  
-  // 玩家出牌
+  if (!gameController) return
   gameController.playerDiscard(idx)
 }
 
 async function playerResponse(action: string) {
-  try {
-    if (!gameController) {
-      console.warn('游戏控制器未初始化')
-      return
-    }
-    
-    console.log('🎮 playerResponse 被調用:', { action, lastDiscardedTile: gameState.lastDiscardedTile })
-  
+  if (!gameController) return
+
   // 如果是「過」，先觸發當下牌滑至側邊動畫（立即執行）
   if (action === 'pass') {
     const centerHighlight = document.querySelector('.discard-highlight-center')
@@ -708,38 +619,23 @@ async function playerResponse(action: string) {
       centerHighlight.classList.add('animate-to-side', 'manual')
     }
   }
-  
+
   // 如果是吃牌，需要选择组合
   if (action === 'chow' && gameState.lastDiscardedTile) {
     const humanPlayer = gameState.players[0]
     const options = getChowOptions(humanPlayer.hand, gameState.lastDiscardedTile)
-    
-    console.log('🍴 吃牌選項:', { 
-      手牌: humanPlayer.hand, 
-      目標牌: gameState.lastDiscardedTile,
-      選項數量: options.length,
-      選項: options 
-    })
-    
+
     if (options.length === 0) {
-      console.error('❌ 無法吃牌：沒有可用選項')
       alert('无法吃牌')
       return
     }
-    
-    // 如果有多个选项，显示选择对话框
+
     if (options.length > 1) {
-      console.log('🔄 顯示吃牌選擇器（多個選項）')
       const selectedTiles = await showChowSelector(options)
-      
-      console.log('📋 用戶選擇:', selectedTiles)
-      
+
       if (selectedTiles) {
-        console.log('✅ 執行吃牌:', selectedTiles)
         gameController.playerResponse('chow', selectedTiles)
       } else {
-        // 玩家選擇過
-        console.log('⏭️ 用戶選擇過')
         const centerHighlight = document.querySelector('.discard-highlight-center')
         if (centerHighlight && !centerHighlight.classList.contains('animate-to-side')) {
           centerHighlight.classList.add('animate-to-side', 'manual')
@@ -747,26 +643,15 @@ async function playerResponse(action: string) {
         gameController.playerResponse('pass')
       }
     } else {
-      // 只有一种吃法，直接执行
-      console.log('✅ 只有一種吃法，直接執行:', options[0].tiles)
       gameController.playerResponse('chow', options[0].tiles)
     }
   } else {
-    console.log('🎯 執行其他動作:', action)
-    gameController.playerResponse(action as any)
-  }
-  } catch (error) {
-    console.error('❌ playerResponse 錯誤:', error)
-    alert(`操作失敗: ${error}`)
+    gameController.playerResponse(action as PlayerAction)
   }
 }
 
 function playerWin() {
-  if (!gameController) {
-    console.warn('游戏控制器未初始化')
-    return
-  }
-  
+  if (!gameController) return
   gameController.playerWin()
 }
 
@@ -805,38 +690,26 @@ init()
 
 // 吃牌選擇器的全局函數
 function selectChowOption(index: number) {
-  if (!gameController) {
-    console.warn('游戏控制器未初始化')
-    return
-  }
-  
+  if (!gameController) return
+
   const lastDiscard = gameState.lastDiscardedTile
   if (!lastDiscard) return
-  
+
   const humanPlayer = gameState.players[0]
   const options = getChowOptions(humanPlayer.hand, lastDiscard)
-  
+
   if (index >= 0 && index < options.length) {
-    // 隱藏選擇器
     const overlay = document.getElementById('chowSelectorOverlay')
     if (overlay) overlay.remove()
-    
-    // 執行吃牌
     gameController.playerResponse('chow', options[index].tiles)
   }
 }
 
 function passChow() {
-  if (!gameController) {
-    console.warn('游戏控制器未初始化')
-    return
-  }
-  
-  // 隱藏選擇器
+  if (!gameController) return
+
   const overlay = document.getElementById('chowSelectorOverlay')
   if (overlay) overlay.remove()
-  
-  // 執行過
   gameController.playerResponse('pass')
 }
 

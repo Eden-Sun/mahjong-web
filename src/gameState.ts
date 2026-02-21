@@ -77,9 +77,7 @@ export interface GameState {
  * 创建初始游戏状态
  */
 export function createInitialGameState(): GameState {
-  // 隨機決定莊家（0-3）
   const randomDealer = Math.floor(Math.random() * 4)
-  console.log(`🎲 莊家：玩家 ${randomDealer}`)
   
   return {
     players: [
