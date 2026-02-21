@@ -47,7 +47,7 @@ export function canConcealedKong(hand: string[]): string[] {
  */
 export function canAddKong(hand: string[], melds: Meld[]): string[] {
   const result: string[] = []
-  
+
   for (const meld of melds) {
     if (meld.type === 'pong') {
       const tile = meld.tiles[0]
@@ -56,8 +56,27 @@ export function canAddKong(hand: string[], melds: Meld[]): string[] {
       }
     }
   }
-  
+
   return result
+}
+
+/**
+ * 执行加杠操作
+ * 条件：已经碰过的牌，手中又有一张
+ * 将碰牌升级为杠牌
+ */
+export function executeAddKong(player: Player, tile: string): boolean {
+  const meldIdx = player.melds.findIndex(m => m.type === 'pong' && m.tiles[0] === tile)
+  if (meldIdx === -1) return false
+
+  const handIdx = player.hand.indexOf(tile)
+  if (handIdx === -1) return false
+
+  player.hand.splice(handIdx, 1)
+  player.melds[meldIdx].type = 'kong'
+  player.melds[meldIdx].tiles.push(tile)
+
+  return true
 }
 
 /**

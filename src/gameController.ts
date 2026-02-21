@@ -1,18 +1,20 @@
 // 游戏控制器和状态机
 
 import { GameState, GamePhase, PlayerAction, ResponseAction, sortHand } from './gameState'
-import { 
-  canPong, 
-  canKong, 
-  canChow, 
+import {
+  canPong,
+  canKong,
+  canChow,
   executePong,
   executeKong,
   executeChow,
   canConcealedKong,
   executeConcealedKong,
+  canAddKong,
+  executeAddKong,
 } from './actionChecker'
 import { checkWin as checkWinNew, WinResult, WinContext } from './winChecker'
-import { getAIResponse, getAIDiscard, checkAISelfWin } from './aiLogic'
+import { getAIResponse, getAIDiscard } from './aiLogic'
 import { GameEngine } from './wasm'
 
 /**
@@ -22,9 +24,10 @@ import { GameEngine } from './wasm'
 export class GameController {
   private state: GameState
   private onStateChange?: (state: GameState) => void
-  private drawnTile: string | null = null  // 新摸的牌
-  private canWinAfterDraw: boolean = false  // 摸牌后是否可以和
+  private drawnTile: string | null = null        // 新摸的牌
+  private canWinAfterDraw: boolean = false        // 摸牌后是否可以和
   private winResultAfterDraw: WinResult | null = null  // 摸牌后的和牌结果
+  private availableKongs: string[] = []           // 摸牌後可加槓/暗槓的牌
   
   constructor(state: GameState, onStateChange?: (state: GameState) => void) {
     this.state = state
@@ -58,7 +61,141 @@ export class GameController {
   getWinResultAfterDraw(): WinResult | null {
     return this.winResultAfterDraw
   }
-  
+
+  /**
+   * 摸牌後可加槓/暗槓的牌（加槓用 addKong，暗槓用 concealedKong）
+   */
+  getAvailableKongs(): string[] {
+    return this.availableKongs
+  }
+
+  /**
+   * 玩家執行加槓（自己回合中）
+   */
+  async playerAddKong(tile: string): Promise<void> {
+    const player = this.state.players[0]
+    if (!executeAddKong(player, tile)) return
+
+    player.hand = sortHand(player.hand)
+    await this._afterSelfKong(0, true)
+  }
+
+  /**
+   * 玩家執行暗槓（自己回合中）
+   */
+  async playerConcealedKong(tile: string): Promise<void> {
+    const player = this.state.players[0]
+    if (!executeConcealedKong(player, tile)) return
+
+    player.hand = sortHand(player.hand)
+    await this._afterSelfKong(0, false)
+  }
+
+  /**
+   * 自己回合中槓牌後補牌共用邏輯
+   * @param playerIdx  執行槓的玩家
+   * @param isAddKong  是加槓（true）還是暗槓（false）
+   */
+  private async _afterSelfKong(playerIdx: number, isAddKong: boolean): Promise<void> {
+    const player = this.state.players[playerIdx]
+
+    // 加槓時讓其他玩家有搶槓機會（只有加槓才能搶槓，暗槓不能搶）
+    if (isAddKong) {
+      const tile = player.melds[player.melds.length - 1].tiles[0]
+      const robbers: Array<{ playerIdx: number; action: 'win' }> = []
+
+      for (let i = 1; i <= 3; i++) {
+        const otherIdx = (playerIdx + i) % 4
+        const other = this.state.players[otherIdx]
+        const winCheck = checkWinNew(other.hand, other.melds, undefined, tile,
+          this.buildWinContext(otherIdx, { isRobKong: true }))
+        if (winCheck.canWin) {
+          if (other.isHuman) {
+            // 玩家有搶槓機會（簡化：自動顯示提示，未來可做 UI）
+            // 目前讓 AI 搶槓；人類玩家搶槓功能留待後續實作
+          } else {
+            robbers.push({ playerIdx: otherIdx, action: 'win' })
+          }
+        }
+      }
+
+      if (robbers.length > 0) {
+        const robber = this.state.players[robbers[0].playerIdx]
+        const winCheck = checkWinNew(robber.hand, robber.melds, undefined, tile,
+          this.buildWinContext(robbers[0].playerIdx, { isRobKong: true }))
+        robber.hand.push(tile)
+        robber.hand = sortHand(robber.hand)
+        this.state.winner = robbers[0].playerIdx
+        this.state.winResult = {
+          fans: winCheck.fans,
+          pattern: winCheck.pattern,
+          winType: '搶槓',
+        }
+        this.state.gamePhase = 'end'
+        this.updateState()
+        return
+      }
+    }
+
+    // 補牌
+    const drawResult = GameEngine.drawTile() as any
+    if (!drawResult?.tile) {
+      this.state.gamePhase = 'end'
+      this.updateState()
+      return
+    }
+
+    const drawnTile = drawResult.tile
+    player.hand.push(drawnTile)
+    player.hand = sortHand(player.hand)
+    this.state.tileCount = drawResult.remaining || 0
+
+    // 槓上開花檢查
+    const winResult = checkWinNew(
+      player.hand, player.melds, drawnTile, undefined,
+      this.buildWinContext(playerIdx, { isKongDraw: true })
+    )
+
+    if (winResult.canWin) {
+      if (player.isHuman) {
+        this.drawnTile = drawnTile
+        this.canWinAfterDraw = true
+        this.winResultAfterDraw = winResult
+        this.availableKongs = []
+      } else {
+        this.state.winner = playerIdx
+        this.state.winResult = {
+          fans: winResult.fans,
+          pattern: winResult.pattern,
+          winType: '槓上開花',
+        }
+        this.state.gamePhase = 'end'
+        this.updateState()
+        return
+      }
+    } else if (player.isHuman) {
+      this.drawnTile = drawnTile
+      this.canWinAfterDraw = false
+      this.winResultAfterDraw = null
+      // 補牌後再次檢查是否可再次加槓/暗槓
+      this.availableKongs = [
+        ...canAddKong(player.hand, player.melds),
+        ...canConcealedKong(player.hand),
+      ]
+    }
+
+    this.state.currentPlayerIdx = playerIdx
+    this.state.gamePhase = 'discard'
+    this.state.waitingForResponse = false
+    this.state.players.forEach(p => { p.canAction = false })
+    this.updateState()
+
+    if (!player.isHuman) {
+      await this.delay(800)
+      await this.aiDiscard()
+    }
+  }
+
   /**
    * 更新状态并触发回调
    */
@@ -154,14 +291,38 @@ export class GameController {
         this.canWinAfterDraw = false
         this.winResultAfterDraw = null
       }
-      
+
+      // 摸牌後檢查加槓/暗槓
+      if (currentPlayer.isHuman) {
+        this.availableKongs = [
+          ...canAddKong(currentPlayer.hand, currentPlayer.melds),
+          ...canConcealedKong(currentPlayer.hand),
+        ]
+      } else {
+        // AI 考慮加槓/暗槓（簡單策略：有就槓）
+        const addKongs = canAddKong(currentPlayer.hand, currentPlayer.melds)
+        const concKongs = canConcealedKong(currentPlayer.hand)
+        if (addKongs.length > 0 && !winResult.canWin) {
+          executeAddKong(currentPlayer, addKongs[0])
+          currentPlayer.hand = sortHand(currentPlayer.hand)
+          await this._afterSelfKong(this.state.currentPlayerIdx, true)
+          return
+        } else if (concKongs.length > 0 && !winResult.canWin) {
+          executeConcealedKong(currentPlayer, concKongs[0])
+          currentPlayer.hand = sortHand(currentPlayer.hand)
+          await this._afterSelfKong(this.state.currentPlayerIdx, false)
+          return
+        }
+        this.availableKongs = []
+      }
+
       // 进入出牌阶段
       this.state.gamePhase = 'discard'
       this.updateState()
-      
+
       // 如果是 AI 玩家，自动出牌
       if (!currentPlayer.isHuman) {
-        await this.delay(800)  // 延迟一下让玩家看到
+        await this.delay(800)
         await this.aiDiscard()
       }
     }
@@ -678,6 +839,7 @@ export class GameController {
   clearWinState(): void {
     this.canWinAfterDraw = false
     this.winResultAfterDraw = null
+    this.availableKongs = []
     this.updateState()
   }
 

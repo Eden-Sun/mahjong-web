@@ -463,6 +463,7 @@ function renderGameBoardNow() {
   const drawnTile = gameController?.getDrawnTile() || null
   const canWinAfterDraw = gameController?.getCanWinAfterDraw() || false
   const winResultAfterDraw = gameController?.getWinResultAfterDraw() || null
+  const availableKongs = gameController?.getAvailableKongs() || []
   
   // 檢查高亮（可吃/碰的牌）
   let highlightTile: string | null = null
@@ -517,6 +518,21 @@ function renderGameBoardNow() {
     </style>
   ` : ''
 
+  // 加槓/暗槓面板（出牌階段且是自己回合時顯示）
+  const kongPanelHtml = availableKongs.length > 0 && !canWinAfterDraw && gameState.currentPlayerIdx === 0 ? `
+    <div class="response-panel" style="margin-bottom: 12px; padding: 10px; background: #fff3e0; border: 2px solid #ff9800; border-radius: 8px;">
+      <strong style="color: #e65100;">🀄 可以槓牌</strong>
+      <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+        ${availableKongs.map(tile => {
+          const isAddKong = humanPlayer.melds.some(m => m.type === 'pong' && m.tiles[0] === tile)
+          const label = isAddKong ? `加槓 ${tileDisplay[tile] ?? tile}` : `暗槓 ${tileDisplay[tile] ?? tile}`
+          const fn = isAddKong ? `playerAddKong('${tile}')` : `playerConcealedKong('${tile}')`
+          return `<button type="button" onclick="${fn}" style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">${label}</button>`
+        }).join('')}
+      </div>
+    </div>
+  ` : ''
+
   const responsePanelHtml = hasResponseRight ? `
     <div class="response-panel" style="margin-bottom: 12px;">
       <div class="response-actions" style="display: flex; gap: 8px; width: 100%;">
@@ -529,7 +545,7 @@ function renderGameBoardNow() {
     </div>
   ` : ''
 
-  const handInfoHtml = [meldsHtml, winPanelHtml, responsePanelHtml].filter(Boolean).join('')
+  const handInfoHtml = [meldsHtml, winPanelHtml, kongPanelHtml, responsePanelHtml].filter(Boolean).join('')
   const handInfoSection = handInfoHtml ? `<div class="player-hand-info">${handInfoHtml}</div>` : ''
 
   app.innerHTML = `
@@ -760,6 +776,16 @@ function playerPass() {
   gameController.clearWinState()
 }
 
+function playerAddKong(tile: string) {
+  if (!gameController) return
+  gameController.playerAddKong(tile)
+}
+
+function playerConcealedKong(tile: string) {
+  if (!gameController) return
+  gameController.playerConcealedKong(tile)
+}
+
 // 全局函數
 Object.assign(window, {
   showMenu,
@@ -769,6 +795,8 @@ Object.assign(window, {
   playerResponse,
   playerWin,
   playerPass,
+  playerAddKong,
+  playerConcealedKong,
   togglePlayerHand,
 })
 
