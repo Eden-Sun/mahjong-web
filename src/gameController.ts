@@ -479,15 +479,34 @@ export class GameController {
           player.hand = sortHand(player.hand)
           this.state.tileCount = kongDrawResult.remaining || 0
           
-          // 如果是玩家，保存新摸的牌（UI 高亮用）
-          if (player.isHuman) {
+          // 明槓補牌後檢查槓上開花
+          const kongWinResult = checkWinNew(
+            player.hand, player.melds, drawnTile, undefined,
+            this.buildWinContext(chosen.playerIdx, { isKongDraw: true })
+          )
+
+          if (kongWinResult.canWin) {
+            if (player.isHuman) {
+              this.drawnTile = drawnTile
+              this.canWinAfterDraw = true
+              this.winResultAfterDraw = kongWinResult
+            } else {
+              // AI 槓上開花
+              this.state.winner = chosen.playerIdx
+              this.state.winResult = {
+                fans: kongWinResult.fans,
+                pattern: kongWinResult.pattern,
+                winType: '槓上開花',
+              }
+              this.state.gamePhase = 'end'
+              this.updateState()
+              return
+            }
+          } else if (player.isHuman) {
             this.drawnTile = drawnTile
-            // 明槓不能自摸，清除自摸胡牌狀態
             this.canWinAfterDraw = false
             this.winResultAfterDraw = null
           }
-          
-          console.log('🔶 補牌後手牌:', player.hand.length, '張')
         }
         
         // 該玩家繼續出牌
