@@ -102,7 +102,7 @@ export class GameController {
     // 加槓時讓其他玩家有搶槓機會（只有加槓才能搶槓，暗槓不能搶）
     if (isAddKong) {
       const tile = player.melds[player.melds.length - 1].tiles[0]
-      const robbers: Array<{ playerIdx: number; action: 'win' }> = []
+      const robbers: Array<{ playerIdx: number; action: 'win'; winResult: ReturnType<typeof checkWinNew> }> = []
 
       for (let i = 1; i <= 3; i++) {
         const otherIdx = (playerIdx + i) % 4
@@ -111,24 +111,19 @@ export class GameController {
           this.buildWinContext(otherIdx, { isRobKong: true }))
         if (winCheck.canWin) {
           if (other.isHuman) {
-            // 玩家有搶槓機會（簡化：自動顯示提示，未來可做 UI）
-            // 目前讓 AI 搶槓；人類玩家搶槓功能留待後續實作
+            // 玩家搶槓功能留待後續實作（目前讓 AI 優先搶槓）
           } else {
-            robbers.push({ playerIdx: otherIdx, action: 'win' })
+            robbers.push({ playerIdx: otherIdx, action: 'win', winResult: winCheck })
           }
         }
       }
 
       if (robbers.length > 0) {
-        const robber = this.state.players[robbers[0].playerIdx]
-        const winCheck = checkWinNew(robber.hand, robber.melds, undefined, tile,
-          this.buildWinContext(robbers[0].playerIdx, { isRobKong: true }))
-        robber.hand.push(tile)
-        robber.hand = sortHand(robber.hand)
-        this.state.winner = robbers[0].playerIdx
+        const { playerIdx: robberIdx, winResult: robberWin } = robbers[0]
+        this.state.winner = robberIdx
         this.state.winResult = {
-          fans: winCheck.fans,
-          pattern: winCheck.pattern,
+          fans: robberWin.fans,
+          pattern: robberWin.pattern,
           winType: '搶槓',
         }
         this.state.gamePhase = 'end'
@@ -598,6 +593,11 @@ export class GameController {
             this.drawnTile = drawnTile
             this.canWinAfterDraw = false
             this.winResultAfterDraw = null
+            // 明槓補牌後，再次檢查是否可繼續加槓/暗槓
+            this.availableKongs = [
+              ...canAddKong(player.hand, player.melds),
+              ...canConcealedKong(player.hand),
+            ]
           }
         }
         
@@ -717,8 +717,7 @@ export class GameController {
     }
     
     const player = this.state.players[0]
-    console.log(`🏆 ${player.name} 自摸！番数: ${this.winResultAfterDraw.fans}, 牌型: ${this.winResultAfterDraw.pattern}`)
-    
+
     // 保存贏家信息
     this.state.winner = 0
     this.state.winResult = {
