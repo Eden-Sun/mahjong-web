@@ -515,8 +515,42 @@ function renderGameBoardNow() {
   const handInfoHtml = [meldsHtml, winPanelHtml, kongPanelHtml, responsePanelHtml].filter(Boolean).join('')
   const handInfoSection = handInfoHtml ? `<div class="player-hand-info">${handInfoHtml}</div>` : ''
 
+  // AI 動作提示
+  const aiAction = gameState.lastAIAction
+  const aiActionLabels: Record<string, string> = { chow: '吃', pong: '碰', kong: '槓' }
+  const aiActionColors: Record<string, string> = { chow: '#42a5f5', pong: '#66bb6a', kong: '#ffa726' }
+  const aiActionNotification = aiAction ? (() => {
+    const player = gameState.players[aiAction.playerIdx]
+    const label = aiActionLabels[aiAction.action] ?? aiAction.action
+    const color = aiActionColors[aiAction.action] ?? '#fff'
+    const tileName = tileDisplay[aiAction.tile] ?? aiAction.tile
+    return `
+      <div class="ai-action-notification" style="
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        background: rgba(0,0,0,0.82); color: white;
+        padding: 18px 36px; border-radius: 16px;
+        font-size: 1.6em; font-weight: bold; text-align: center;
+        border: 3px solid ${color};
+        box-shadow: 0 0 30px ${color}88;
+        animation: ai-action-pop 0.3s cubic-bezier(0.22,1,0.36,1) forwards;
+        pointer-events: none; z-index: 9999;
+      ">
+        <span style="color: ${color}; font-size: 1.1em;">${label}</span>
+        <div style="font-size: 0.65em; opacity: 0.85; margin-top: 6px;">${player.name} &nbsp;${tileName}</div>
+      </div>
+    `
+  })() : ''
+
   app.innerHTML = `
+    <style>
+      @keyframes ai-action-pop {
+        0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+        60%  { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+        100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
+    </style>
     <div id="game-container">
+      ${aiActionNotification}
       
       <!-- 頂部：三個 AI 玩家（左=上家/東, 中=對家/北, 右=下家/西）-->
       <div class="top-players">

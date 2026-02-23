@@ -355,6 +355,9 @@ export class GameController {
    * AI 出牌
    */
   private async aiDiscard(): Promise<void> {
+    // AI 出牌時清除碰/吃/槓提示
+    this.state.lastAIAction = null
+
     const currentPlayer = this.state.players[this.state.currentPlayerIdx]
     
     if (currentPlayer.hand.length === 0) {
@@ -553,6 +556,9 @@ export class GameController {
       }
 
       case 'kong': {
+        if (!player.isHuman) {
+          this.state.lastAIAction = { playerIdx: chosen.playerIdx, action: 'kong', tile }
+        }
         executeKong(player, tile)
         player.hand = sortHand(player.hand)
 
@@ -614,6 +620,9 @@ export class GameController {
       }
 
       case 'pong':
+        if (!player.isHuman) {
+          this.state.lastAIAction = { playerIdx: chosen.playerIdx, action: 'pong', tile }
+        }
         executePong(player, tile)
         player.hand = sortHand(player.hand)
         this.state.currentPlayerIdx = chosen.playerIdx
@@ -630,6 +639,9 @@ export class GameController {
 
       case 'chow':
         if (!chosen.tiles) break
+        if (!player.isHuman) {
+          this.state.lastAIAction = { playerIdx: chosen.playerIdx, action: 'chow', tile }
+        }
         if (!executeChow(player, chosen.tiles, tile)) {
           player.canAction = true
           this.updateState()
@@ -660,6 +672,7 @@ export class GameController {
     this.state.waitingForResponse = false
     this.state.lastDiscardedTile = null
     this.state.lastDiscardPlayer = null
+    this.state.lastAIAction = null
     
     this.updateState()
     

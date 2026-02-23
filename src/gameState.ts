@@ -71,6 +71,7 @@ export interface GameState {
   pendingActions: ResponseAction[]  // 待处理的响应动作
   winner: number | null             // 贏家索引（null = 流局）
   winResult: { fans: number; pattern: string; winType: string } | null  // 胡牌結果
+  lastAIAction: { playerIdx: number; action: 'chow' | 'pong' | 'kong'; tile: string } | null  // 其他家動作提示
 }
 
 /**
@@ -99,6 +100,7 @@ export function createInitialGameState(): GameState {
     pendingActions: [],
     winner: null,
     winResult: null,
+    lastAIAction: null,
   }
 }
 
