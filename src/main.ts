@@ -518,18 +518,18 @@ function renderGameBoardNow() {
         <div style="font-size: 2.8em; font-weight: 900; letter-spacing: 4px; color: #69f0ae; text-shadow: 0 0 20px #69f0ae;">自摸！</div>
         <div style="font-size: 1.5em; margin: 12px 0 4px; font-weight: bold;">${winResultAfterDraw.fans} 番</div>
         <div style="font-size: 1em; opacity: 0.85; margin-bottom: 24px;">${winResultAfterDraw.pattern}</div>
-        <div style="display: flex; gap: 12px; justify-content: center;">
+        <div style="display: flex; gap: 12px; justify-content: center; align-items: center;">
           <button type="button" onclick="playerWin()" style="
-            padding: 14px 36px; font-size: 1.2em; font-weight: bold;
+            padding: 16px 48px; font-size: 1.4em; font-weight: bold;
             background: #69f0ae; color: #1b5e20;
             border: none; border-radius: 10px; cursor: pointer;
             box-shadow: 0 4px 15px rgba(105,240,174,0.4);
-          ">🎉 胡牌</button>
+          ">🀄 自摸</button>
           <button type="button" onclick="playerPass()" style="
-            padding: 14px 24px; font-size: 1.1em;
-            background: rgba(255,255,255,0.15); color: white;
-            border: 2px solid rgba(255,255,255,0.3); border-radius: 10px; cursor: pointer;
-          ">⏭️ 過</button>
+            padding: 8px 16px; font-size: 0.85em;
+            background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6);
+            border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; cursor: pointer;
+          ">過</button>
         </div>
       </div>
     </div>
