@@ -430,8 +430,8 @@ function renderGameBoardNow() {
   // 获取可用动作
   let availableActions: string[] = []
   if (hasResponseRight && gameState.lastDiscardedTile && gameState.lastDiscardPlayer !== null) {
-    // 逆時針：0→1→2→3→0，上家=左邊(+3)，下家=右邊(+1)
-    // 玩家 0 的上家 = 玩家 3；玩家 3 出牌時，玩家 0 是下家 → 可以吃、不能槓
+    // 出牌順序：3(東/上家) → 0(南/自己) → 1(西/下家) → 2(北/對家)
+    // 自己(0) 的下家是 1，上家是 3；玩家 3 出牌時，玩家 0 是下家 → 可以吃
     const isNextPlayer = (gameState.lastDiscardPlayer + 1) % 4 === 0
     availableActions = gameController?.getAvailableActions(0, gameState.lastDiscardedTile, isNextPlayer) || []
   }
@@ -518,11 +518,11 @@ function renderGameBoardNow() {
   app.innerHTML = `
     <div id="game-container">
       
-      <!-- 頂部：三個 AI 玩家 -->
+      <!-- 頂部：三個 AI 玩家（左=上家/東, 中=對家/北, 右=下家/西）-->
       <div class="top-players">
-        ${renderAIPlayer(aiPlayers[0] || gameState.players[1], gameState.currentPlayerIdx === 1)}
-        ${renderAIPlayer(aiPlayers[1] || gameState.players[2], gameState.currentPlayerIdx === 2)}
-        ${renderAIPlayer(aiPlayers[2] || gameState.players[3], gameState.currentPlayerIdx === 3)}
+        ${renderAIPlayer(gameState.players[3], gameState.currentPlayerIdx === 3, 'horizontal', '上家')}
+        ${renderAIPlayer(gameState.players[2], gameState.currentPlayerIdx === 2, 'horizontal', '對家')}
+        ${renderAIPlayer(gameState.players[1], gameState.currentPlayerIdx === 1, 'horizontal', '下家')}
       </div>
 
       <!-- 中間：牌桌 -->
@@ -622,13 +622,14 @@ function getStatusMessage(
 }
 
 
-function renderAIPlayer(player: any, isCurrentPlayer: boolean = false, orientation: 'horizontal' | 'vertical' = 'horizontal') {
+function renderAIPlayer(player: any, isCurrentPlayer: boolean = false, orientation: 'horizontal' | 'vertical' = 'horizontal', label: string = '') {
   const borderColor = isCurrentPlayer ? '#4CAF50' : '#FFF'
   const borderWidth = isCurrentPlayer ? '3px' : '2px'
   
   if (orientation === 'vertical') {
     return `
       <div class="ai-player-container" style="background: rgba(255, 255, 255, 0.1); border: ${borderWidth} solid ${borderColor}; border-radius: 8px; padding: 15px; color: white; text-align: center; writing-mode: vertical-rl; text-orientation: mixed;">
+        ${label ? `<p style="margin: 0 0 4px 0; font-size: 0.75em; opacity: 0.7;">${label}</p>` : ''}
         <p style="margin: 0 0 10px 0; font-weight: bold;">${player.name} ${isCurrentPlayer ? '👈' : ''}</p>
         <p class="ai-player-hand-count" style="margin: 0 0 10px 0; font-size: 0.9em;">🃏 ${player.hand.length} 張</p>
         ${player.melds && player.melds.length > 0 ? `<p style="margin: 0 0 10px 0; font-size: 0.9em;">📦 ${player.melds.length} 組</p>` : ''}
@@ -638,6 +639,7 @@ function renderAIPlayer(player: any, isCurrentPlayer: boolean = false, orientati
 
   return `
     <div class="ai-player-container" style="background: rgba(255, 255, 255, 0.1); border: ${borderWidth} solid ${borderColor}; border-radius: 8px; padding: 15px; color: white; flex: 1; min-width: 200px;">
+      ${label ? `<div style="font-size: 0.75em; opacity: 0.7; margin-bottom: 4px;">${label}</div>` : ''}
       <h4 style="margin: 0 0 10px 0; color: ${isCurrentPlayer ? '#4CAF50' : '#FFD700'};">${player.name} ${isCurrentPlayer ? '👈' : ''}</h4>
       <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
         <span class="ai-player-hand-count">🃏 ${player.hand.length} 張</span>

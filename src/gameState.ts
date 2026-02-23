@@ -15,7 +15,7 @@ export interface Meld {
  */
 export interface DiscardedTile {
   tile: string
-  player: number           // 0=東, 1=南, 2=西, 3=北
+  player: number           // 0=南(你), 1=西(下家), 2=北(對家), 3=東(上家)
   timestamp: number
   isCurrentTile: boolean   // 是否是當下牌（最新捨出的牌）
   claimedBy?: number
@@ -77,16 +77,18 @@ export interface GameState {
  * 创建初始游戏状态
  */
 export function createInitialGameState(): GameState {
-  const randomDealer = Math.floor(Math.random() * 4)
+  // 出牌順序：上家(東,idx=3) → 自己(南,idx=0) → 下家(西,idx=1) → 對家(北,idx=2)
+  // 東家先出，固定從 idx=3 開始
+  const firstPlayerIdx = 3
   
   return {
     players: [
-      { name: '你', hand: [], melds: [], discardPile: [], score: 0, isHuman: true, canAction: false },
-      { name: 'AI-東', hand: [], melds: [], discardPile: [], score: 0, isHuman: false, canAction: false },
-      { name: 'AI-南', hand: [], melds: [], discardPile: [], score: 0, isHuman: false, canAction: false },
-      { name: 'AI-西', hand: [], melds: [], discardPile: [], score: 0, isHuman: false, canAction: false },
+      { name: '你(南)',   hand: [], melds: [], discardPile: [], score: 0, isHuman: true,  canAction: false },
+      { name: 'AI-西',   hand: [], melds: [], discardPile: [], score: 0, isHuman: false, canAction: false },
+      { name: 'AI-北',   hand: [], melds: [], discardPile: [], score: 0, isHuman: false, canAction: false },
+      { name: 'AI-東',   hand: [], melds: [], discardPile: [], score: 0, isHuman: false, canAction: false },
     ],
-    currentPlayerIdx: randomDealer,
+    currentPlayerIdx: firstPlayerIdx,
     gamePhase: 'draw',
     lastDiscardedTile: null,
     lastDiscardPlayer: null,

@@ -408,9 +408,9 @@ export class GameController {
     const responses: ResponseAction[] = []
     
     // 檢查其他 3 個玩家（逆時針順序）
-    // 逆時針：0→1→2→3→0，下家 = +1，對家 = +2，上家 = +3
-    // i=1 → 下家（右邊，可以吃、不能槓上家牌）
-    // i=2 → 對家
+    // 出牌順序：3(東/上家) → 0(南/自己) → 1(西/下家) → 2(北/對家) → 3...
+    // i=1 → 下家（右邊），可以吃
+    // i=2 → 對家（上方）
     // i=3 → 上家（左邊）
     for (let i = 1; i <= 3; i++) {
       const playerIdx = (discardPlayerIdx + i) % 4
@@ -673,9 +673,10 @@ export class GameController {
    */
   /** 建立胡牌 context（風牌、莊家、最後一張等） */
   private buildWinContext(playerIdx: number, options: Partial<WinContext> = {}): WinContext {
-    const winds: string[] = ['E', 'S', 'W', 'N']
+    // idx: 0=南(自己), 1=西(下家), 2=北(對家), 3=東(上家)
+    const winds: string[] = ['S', 'W', 'N', 'E']
     return {
-      isDealer: playerIdx === 0,          // 東家 = 莊家（簡化）
+      isDealer: playerIdx === 3,          // 東家(idx=3) = 莊家
       seatWind: winds[playerIdx] ?? 'E',
       roundWind: 'E',                     // 第一圈東風
       isLastTile: this.state.tileCount === 0,
