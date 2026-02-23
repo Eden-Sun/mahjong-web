@@ -20,6 +20,9 @@ let gameController: GameController | null = null
 // 🀄 天聽模式：固定手牌 1112345678999萬 發發發（摸牌即可胡）
 const TENPAI_HAND = ['1m', '1m', '1m', '2m', '3m', '4m', '5m', '6m', '7m', '8m', '9m', '9m', '9m', 'F', 'F', 'F']
 
+// 記住上一局使用的模式，讓「再來一局」延續同模式
+let currentGameMode = false
+
 const tileDisplay: { [key: string]: string } = {
   '1m': '1萬', '2m': '2萬', '3m': '3萬', '4m': '4萬', '5m': '5萬',
   '6m': '6萬', '7m': '7萬', '8m': '8萬', '9m': '9萬',
@@ -126,7 +129,7 @@ function showGameEndScreen() {
         <h1 style="font-size: 3em; margin-bottom: 20px;">🌊 流局</h1>
         <p style="font-size: 1.2em; color: #666; margin-bottom: 30px;">牌堆已空，無人胡牌</p>
         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-          <button id="restartBtn" style="padding: 12px 30px; font-size: clamp(0.95em, 2.5vw, 1.1em); background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; min-width: 120px;">🔄 再來一局</button>
+          <button id="restartBtn" style="padding: 12px 30px; font-size: clamp(0.95em, 2.5vw, 1.1em); background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; min-width: 120px;">🔄 再來一局${currentGameMode ? '（天聽）' : ''}</button>
           <button id="menuBtn" style="padding: 12px 30px; font-size: clamp(0.95em, 2.5vw, 1.1em); background: #f0f0f0; color: #333; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; min-width: 120px;">🏠 返回菜單</button>
         </div>
       </div>
@@ -137,7 +140,7 @@ function showGameEndScreen() {
     const menuBtn = document.getElementById('menuBtn')
     
     if (restartBtn) {
-      restartBtn.addEventListener('click', () => startGame())
+      restartBtn.addEventListener('click', () => startGame(currentGameMode))
     }
 
     if (menuBtn) {
@@ -226,7 +229,7 @@ function showGameEndScreen() {
       <!-- 按鈕 -->
       <div style="text-align: center; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 15px;">
         <button id="restartBtn" style="padding: 12px 30px; font-size: clamp(0.95em, 2.5vw, 1.1em); background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.2s; -webkit-tap-highlight-color: transparent; min-width: 120px;">
-          🔄 再來一局
+          🔄 再來一局${currentGameMode ? '（天聽）' : ''}
         </button>
         <button id="menuBtn" style="padding: 12px 30px; font-size: clamp(0.95em, 2.5vw, 1.1em); background: #f0f0f0; color: #333; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: transform 0.2s; -webkit-tap-highlight-color: transparent; min-width: 120px;">
           🏠 返回菜單
@@ -240,7 +243,7 @@ function showGameEndScreen() {
   const menuBtn = document.getElementById('menuBtn')
   
   if (restartBtn) {
-    restartBtn.addEventListener('click', () => startGame())
+    restartBtn.addEventListener('click', () => startGame(currentGameMode))
   }
 
   if (menuBtn) {
@@ -333,6 +336,7 @@ function showRules() {
 }
 
 function startGame(devMode = false) {
+  currentGameMode = devMode
   GameEngine.resetGame()
   GameEngine.initGame()
 
