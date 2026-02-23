@@ -464,26 +464,7 @@ function renderGameBoardNow() {
     </div>
   ` : ''
 
-  const winPanelHtml = canWinAfterDraw && winResultAfterDraw ? `
-    <div class="response-panel response-panel--win" style="margin-bottom: 15px; padding: 15px; background: #e8f5e9; border: 3px solid #4CAF50; border-radius: 8px; animation: pulse 1.5s ease-in-out infinite;">
-      <strong class="response-title" style="color: #2e7d32; font-size: 1.2em;">🏆 可以胡牌！</strong>
-      <p class="response-subtitle" style="color: #2e7d32; margin: 8px 0;">番數：${winResultAfterDraw.fans} 番 | 牌型：${winResultAfterDraw.pattern}</p>
-      <div class="response-actions response-actions--duo" style="display: flex; gap: 10px; margin-top: 10px;">
-        <button class="response-button response-button--win" type="button" onclick="playerWin()" style="padding: 12px 24px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1.1em; flex: 1;">
-          🎉 胡牌
-        </button>
-        <button class="response-button response-button--pass" type="button" onclick="playerPass()" style="padding: 12px 24px; background: #9e9e9e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
-          ⏭️ 過
-        </button>
-      </div>
-    </div>
-    <style>
-      @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.02); }
-      }
-    </style>
-  ` : ''
+  const winPanelHtml = ''  // 自摸提示改為全螢幕 overlay（見下方 tsumoOverlay）
 
   // 加槓/暗槓面板（出牌階段且是自己回合時顯示）
   const kongPanelHtml = availableKongs.length > 0 && !canWinAfterDraw && gameState.currentPlayerIdx === 0 ? `
@@ -514,6 +495,55 @@ function renderGameBoardNow() {
 
   const handInfoHtml = [meldsHtml, winPanelHtml, kongPanelHtml, responsePanelHtml].filter(Boolean).join('')
   const handInfoSection = handInfoHtml ? `<div class="player-hand-info">${handInfoHtml}</div>` : ''
+
+  // 自摸 overlay（摸到可胡牌時，全螢幕中央大字提示）
+  const tsumoOverlay = canWinAfterDraw && winResultAfterDraw ? `
+    <div style="
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.55);
+      z-index: 9998;
+      animation: tsumo-bg-in 0.25s ease forwards;
+    ">
+      <div style="
+        background: linear-gradient(135deg, #1b5e20, #2e7d32);
+        color: white; border-radius: 20px;
+        padding: 36px 48px; text-align: center;
+        border: 4px solid #69f0ae;
+        box-shadow: 0 0 60px #69f0ae88, 0 20px 60px rgba(0,0,0,0.5);
+        animation: tsumo-pop 0.35s cubic-bezier(0.22,1,0.36,1) forwards;
+        min-width: 280px;
+      ">
+        <div style="font-size: 3em; margin-bottom: 6px;">🀄</div>
+        <div style="font-size: 2.8em; font-weight: 900; letter-spacing: 4px; color: #69f0ae; text-shadow: 0 0 20px #69f0ae;">自摸！</div>
+        <div style="font-size: 1.5em; margin: 12px 0 4px; font-weight: bold;">${winResultAfterDraw.fans} 番</div>
+        <div style="font-size: 1em; opacity: 0.85; margin-bottom: 24px;">${winResultAfterDraw.pattern}</div>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+          <button type="button" onclick="playerWin()" style="
+            padding: 14px 36px; font-size: 1.2em; font-weight: bold;
+            background: #69f0ae; color: #1b5e20;
+            border: none; border-radius: 10px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(105,240,174,0.4);
+          ">🎉 胡牌</button>
+          <button type="button" onclick="playerPass()" style="
+            padding: 14px 24px; font-size: 1.1em;
+            background: rgba(255,255,255,0.15); color: white;
+            border: 2px solid rgba(255,255,255,0.3); border-radius: 10px; cursor: pointer;
+          ">⏭️ 過</button>
+        </div>
+      </div>
+    </div>
+    <style>
+      @keyframes tsumo-bg-in {
+        from { opacity: 0; } to { opacity: 1; }
+      }
+      @keyframes tsumo-pop {
+        0%   { opacity: 0; transform: scale(0.5) translateY(30px); }
+        70%  { transform: scale(1.05) translateY(-4px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); }
+      }
+    </style>
+  ` : ''
 
   // AI 動作提示
   const aiAction = gameState.lastAIAction
@@ -550,6 +580,7 @@ function renderGameBoardNow() {
       }
     </style>
     <div id="game-container">
+      ${tsumoOverlay}
       ${aiActionNotification}
       
       <!-- 頂部：三個 AI 玩家（左=上家/東, 中=對家/北, 右=下家/西）-->
@@ -640,7 +671,7 @@ function getStatusMessage(
   
   if (currentPlayerIdx === 0) {
     if (canWinAfterDraw && winResultAfterDraw) {
-      return `<span style="color: #4CAF50; font-size: 1.2em;">🏆 可以胡牌！(${winResultAfterDraw.fans} 番)</span>`
+      return `<span style="color: #4CAF50; font-size: 1.2em;">🀄 自摸！${winResultAfterDraw.fans} 番</span>`
     } else if (canDiscard) {
       return '<span style="color: #4CAF50; font-size: 1.1em;">👉 請點擊手牌出牌</span>'
     } else if (phase === 'draw') {
