@@ -28,8 +28,9 @@ const tileDisplay: { [key: string]: string } = {
   'B': '▢', 'F': '發', 'Z': '中',
 }
 
-const playerNames = ['東', '南', '西', '北']
-const arrowSymbols = ['↑', '←', '↓', '→']
+// idx: 0=南(自己/底), 1=西(下家/右), 2=北(對家/上), 3=東(上家/左)
+const playerNames = ['南', '西', '北', '東']
+const arrowSymbols = ['↑', '←', '↓', '→']  // 各方往中間的方向
 const playerColors = ['#ef5350', '#42a5f5', '#66bb6a', '#ffa726']
 
 export function renderDiscardTimeline(props: DiscardTimelineProps): string {
@@ -39,11 +40,11 @@ export function renderDiscardTimeline(props: DiscardTimelineProps): string {
   const currentTile = discardPool.find(d => d.isCurrentTile)
   const historicTiles = discardPool.filter(d => !d.isCurrentTile)
   
-  // 按玩家分組歷史牌
-  const leftTiles = historicTiles.filter(d => d.player === 1)  // 南（上家）
-  const centerTopTiles = historicTiles.filter(d => d.player === 2)  // 西（對家）
-  const centerBottomTiles = historicTiles.filter(d => d.player === 0)  // 東（自己）
-  const rightTiles = historicTiles.filter(d => d.player === 3)  // 北（下家）
+  // 按玩家分組歷史牌（idx: 0=南/自己/底, 1=西/下家/右, 2=北/對家/上, 3=東/上家/左）
+  const leftTiles = historicTiles.filter(d => d.player === 3)        // 東/上家（左）
+  const centerTopTiles = historicTiles.filter(d => d.player === 2)   // 北/對家（上）
+  const centerBottomTiles = historicTiles.filter(d => d.player === 0) // 南/自己（底）
+  const rightTiles = historicTiles.filter(d => d.player === 1)       // 西/下家（右）
   
   // 找出最後一張歷史牌（海底）
   const lastHistoricTile = historicTiles.length > 0 
@@ -68,7 +69,8 @@ export function renderDiscardTimeline(props: DiscardTimelineProps): string {
       console.log(`🎬 檢查動畫: 牌=${d.tile} ID=${d.id?.substring(0, 10)}... 已播放=${hasAnimated} 集合大小=${animatedDiscardIds.size}`)
       
       if (d.id && !hasAnimated) {
-        const flyAnimations = ['fly-from-bottom', 'fly-from-left', 'fly-from-top', 'fly-from-right']
+        // idx: 0=南(底→上飛), 1=西/下家(右→左飛), 2=北/對家(上→下飛), 3=東/上家(左→右飛)
+        const flyAnimations = ['fly-from-bottom', 'fly-from-right', 'fly-from-top', 'fly-from-left']
         flyClass = flyAnimations[d.player]
         animatedDiscardIds.add(d.id)
         console.log(`✅ 添加動畫: ${flyClass}`)
@@ -111,13 +113,13 @@ export function renderDiscardTimeline(props: DiscardTimelineProps): string {
   
   if (currentTile) {
     if (currentTile.player === 0) {
-      // 自己（東家） -> 中央下方
+      // 自己（南/底） -> 中央下方
       currentTilePosition = 'bottom'
     } else if (currentTile.player === 2) {
-      // 對家（西家） -> 中央上方
+      // 對家（北/上） -> 中央上方
       currentTilePosition = 'top'
     } else {
-      // 上家/下家 -> 中央
+      // 上家(idx=3/左) 或 下家(idx=1/右) -> 中央
       currentTilePosition = 'center'
       // 不再自動滑至側邊，讓捨牌保持可見直到下一個動作
       shouldAnimateToSide = false
@@ -128,7 +130,7 @@ export function renderDiscardTimeline(props: DiscardTimelineProps): string {
   
   return `
     <div class="discard-timeline-container">
-      <!-- 左區：上家（南家）捨牌 -->
+      <!-- 左區：上家（東/idx=3）捨牌 -->
       <div class="discard-left">
         ${leftTiles.reverse().map(d => renderTile(d)).join('')}
       </div>
@@ -167,7 +169,7 @@ export function renderDiscardTimeline(props: DiscardTimelineProps): string {
         </div>
       </div>
       
-      <!-- 右區：下家（北家）捨牌 -->
+      <!-- 右區：下家（西/idx=1）捨牌 -->
       <div class="discard-right">
         ${rightTiles.map(d => renderTile(d)).join('')}
       </div>
