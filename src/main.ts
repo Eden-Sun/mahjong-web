@@ -17,6 +17,9 @@ const app = document.getElementById('app')!
 let gameState: GameState = createInitialGameState()
 let gameController: GameController | null = null
 
+// 🀄 天聽模式：固定手牌 1112345678999萬 發發發（摸牌即可胡）
+const TENPAI_HAND = ['1m', '1m', '1m', '2m', '3m', '4m', '5m', '6m', '7m', '8m', '9m', '9m', '9m', 'F', 'F', 'F']
+
 const tileDisplay: { [key: string]: string } = {
   '1m': '1萬', '2m': '2萬', '3m': '3萬', '4m': '4萬', '5m': '5萬',
   '6m': '6萬', '7m': '7萬', '8m': '8萬', '9m': '9萬',
@@ -245,49 +248,66 @@ function showGameEndScreen() {
   }
 }
 
+function startGameTenpai() {
+  startGame(true)
+}
+
 function showMenu() {
   app.innerHTML = `
     <div style="max-width: 600px; margin: 0 auto;">
-      <h2 style="text-align: center; margin-bottom: 30px; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+      <h2 style="text-align: center; margin-bottom: 8px; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
         🀄 麻將遊戲
       </h2>
-      
-      <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-bottom: 40px;">
-        <button id="startBtn" onclick="startGame()" style="
-          padding: 15px 40px;
-          font-size: 1.1em;
+      <p style="text-align: center; color: #999; margin-bottom: 30px; font-size: 0.9em;">選擇模式開始</p>
+
+      <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 30px;">
+
+        <!-- 一般模式 -->
+        <div onclick="startGame()" style="
+          flex: 1; min-width: 200px; max-width: 240px;
+          padding: 24px 20px;
           background: linear-gradient(135deg, #667eea, #764ba2);
           color: white;
-          border: none;
-          border-radius: 8px;
+          border-radius: 12px;
           cursor: pointer;
+          text-align: center;
           transition: transform 0.2s, box-shadow 0.2s;
-        ">
-          🎮 開始遊戲
-        </button>
-        
-        <button id="ruleBtn" onclick="showRules()" style="
-          padding: 15px 40px;
-          font-size: 1.1em;
-          background: #f0f0f0;
-          color: #333;
-          border: 2px solid #ddd;
+          box-shadow: 0 4px 15px rgba(102,126,234,0.3);
+        " onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
+          <div style="font-size: 2.5em; margin-bottom: 10px;">🎲</div>
+          <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">一般模式</div>
+          <div style="font-size: 0.85em; opacity: 0.85; line-height: 1.5;">隨機發牌<br>正常遊戲流程</div>
+        </div>
+
+        <!-- 天聽模式 -->
+        <div onclick="startGameTenpai()" style="
+          flex: 1; min-width: 200px; max-width: 240px;
+          padding: 24px 20px;
+          background: linear-gradient(135deg, #f093fb, #f5576c);
+          color: white;
+          border-radius: 12px;
+          cursor: pointer;
+          text-align: center;
+          transition: transform 0.2s, box-shadow 0.2s;
+          box-shadow: 0 4px 15px rgba(245,87,108,0.3);
+        " onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
+          <div style="font-size: 2.5em; margin-bottom: 10px;">🀄</div>
+          <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">天聽模式</div>
+          <div style="font-size: 0.85em; opacity: 0.85; line-height: 1.5;">1112345678999萬 發發發<br>摸牌即可測試胡牌</div>
+        </div>
+
+      </div>
+
+      <div style="text-align: center;">
+        <button onclick="showRules()" style="
+          padding: 10px 28px;
+          font-size: 0.95em;
+          background: transparent;
+          color: #888;
+          border: 1px solid #ddd;
           border-radius: 8px;
           cursor: pointer;
-          transition: transform 0.2s;
-        ">
-          📋 查看規則
-        </button>
-      </div>
-      
-      <div style="padding: 30px; background: #f9f9f9; border-radius: 8px;">
-        <h3 style="margin-bottom: 15px; color: #667eea;">✨ 功能</h3>
-        <ul style="list-style: none; color: #666; line-height: 2; margin: 0; padding: 0;">
-          <li>✅ 純前端 TypeScript + WebAssembly</li>
-          <li>✅ 4 人麻將（1 人 + 3 AI）</li>
-          <li>✅ 台灣麻將規則</li>
-          <li>✅ 實時遊戲狀態</li>
-        </ul>
+        ">📋 查看規則</button>
       </div>
     </div>
   `
@@ -312,23 +332,44 @@ function showRules() {
 - 番數越高分數越多`)
 }
 
-function startGame() {
+function startGame(devMode = false) {
   GameEngine.resetGame()
   GameEngine.initGame()
 
   gameState = createInitialGameState()
   resetDiscardAnimations()
 
-  // 給每個玩家初始 16 張牌
-  for (let playerIdx = 0; playerIdx < 4; playerIdx++) {
-    for (let i = 0; i < 16; i++) {
-      const tile = GameEngine.drawTile() as any
-      if (tile && tile.tile) {
-        gameState.players[playerIdx].hand.push(tile.tile)
-        gameState.tileCount = tile.remaining || 0
-      }
+  if (devMode) {
+    // 🀄 天聽模式：從牌堆移除固定手牌，直接設給玩家 0
+    for (const tile of TENPAI_HAND) {
+      GameEngine.removeTile(tile)
     }
-    gameState.players[playerIdx].hand = sortHand(gameState.players[playerIdx].hand)
+    gameState.players[0].hand = [...TENPAI_HAND]
+    gameState.players[0].hand = sortHand(gameState.players[0].hand)
+
+    // AI 玩家（1-3）正常摸牌
+    for (let playerIdx = 1; playerIdx < 4; playerIdx++) {
+      for (let i = 0; i < 16; i++) {
+        const tile = GameEngine.drawTile() as any
+        if (tile && tile.tile) {
+          gameState.players[playerIdx].hand.push(tile.tile)
+          gameState.tileCount = tile.remaining || 0
+        }
+      }
+      gameState.players[playerIdx].hand = sortHand(gameState.players[playerIdx].hand)
+    }
+  } else {
+    // 正常模式：所有玩家隨機摸牌
+    for (let playerIdx = 0; playerIdx < 4; playerIdx++) {
+      for (let i = 0; i < 16; i++) {
+        const tile = GameEngine.drawTile() as any
+        if (tile && tile.tile) {
+          gameState.players[playerIdx].hand.push(tile.tile)
+          gameState.tileCount = tile.remaining || 0
+        }
+      }
+      gameState.players[playerIdx].hand = sortHand(gameState.players[playerIdx].hand)
+    }
   }
 
   gameController = new GameController(gameState, (newState) => {
@@ -675,6 +716,7 @@ function playerConcealedKong(tile: string) {
 Object.assign(window, {
   showMenu,
   startGame,
+  startGameTenpai,
   showRules,
   selectTile,
   playerResponse,
