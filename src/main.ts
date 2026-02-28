@@ -129,8 +129,8 @@ function showGameEndScreen() {
         <h1 style="font-size: 3em; margin-bottom: 20px;">🌊 流局</h1>
         <p style="font-size: 1.2em; color: #666; margin-bottom: 30px;">牌堆已空，無人胡牌</p>
         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-          <button id="restartBtn" style="padding: 12px 30px; font-size: clamp(0.95em, 2.5vw, 1.1em); background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; min-width: 120px;">🔄 再來一局${currentGameMode ? '（天聽）' : ''}</button>
-          <button id="menuBtn" style="padding: 12px 30px; font-size: clamp(0.95em, 2.5vw, 1.1em); background: #f0f0f0; color: #333; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; min-width: 120px;">🏠 返回菜單</button>
+          <button id="restartBtn" class="game-btn--restart">🔄 再來一局${currentGameMode ? '（天聽）' : ''}</button>
+          <button id="menuBtn" class="game-btn--menu">🏠 返回菜單</button>
         </div>
       </div>
     `
@@ -228,12 +228,8 @@ function showGameEndScreen() {
       
       <!-- 按鈕 -->
       <div style="text-align: center; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 15px;">
-        <button id="restartBtn" style="padding: 12px 30px; font-size: clamp(0.95em, 2.5vw, 1.1em); background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.2s; -webkit-tap-highlight-color: transparent; min-width: 120px;">
-          🔄 再來一局${currentGameMode ? '（天聽）' : ''}
-        </button>
-        <button id="menuBtn" style="padding: 12px 30px; font-size: clamp(0.95em, 2.5vw, 1.1em); background: #f0f0f0; color: #333; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: transform 0.2s; -webkit-tap-highlight-color: transparent; min-width: 120px;">
-          🏠 返回菜單
-        </button>
+        <button id="restartBtn" class="game-btn--restart">🔄 再來一局${currentGameMode ? '（天聽）' : ''}</button>
+        <button id="menuBtn" class="game-btn--menu">🏠 返回菜單</button>
       </div>
     </div>
   `
@@ -266,51 +262,23 @@ function showMenu() {
       <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 30px;">
 
         <!-- 一般模式 -->
-        <div onclick="startGame()" style="
-          flex: 1; min-width: 200px; max-width: 240px;
-          padding: 24px 20px;
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          color: white;
-          border-radius: 12px;
-          cursor: pointer;
-          text-align: center;
-          transition: transform 0.2s, box-shadow 0.2s;
-          box-shadow: 0 4px 15px rgba(102,126,234,0.3);
-        " onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
-          <div style="font-size: 2.5em; margin-bottom: 10px;">🎲</div>
-          <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">一般模式</div>
-          <div style="font-size: 0.85em; opacity: 0.85; line-height: 1.5;">隨機發牌<br>正常遊戲流程</div>
+        <div onclick="startGame()" class="menu-card menu-card--normal">
+          <div class="menu-card__icon">🎲</div>
+          <div class="menu-card__title">一般模式</div>
+          <div class="menu-card__desc">隨機發牌<br>正常遊戲流程</div>
         </div>
 
         <!-- 天聽模式 -->
-        <div onclick="startGameTenpai()" style="
-          flex: 1; min-width: 200px; max-width: 240px;
-          padding: 24px 20px;
-          background: linear-gradient(135deg, #f093fb, #f5576c);
-          color: white;
-          border-radius: 12px;
-          cursor: pointer;
-          text-align: center;
-          transition: transform 0.2s, box-shadow 0.2s;
-          box-shadow: 0 4px 15px rgba(245,87,108,0.3);
-        " onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
-          <div style="font-size: 2.5em; margin-bottom: 10px;">🀄</div>
-          <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">天聽模式</div>
-          <div style="font-size: 0.85em; opacity: 0.85; line-height: 1.5;">1112345678999萬 發發發<br>摸牌即可測試胡牌</div>
+        <div onclick="startGameTenpai()" class="menu-card menu-card--tenpai">
+          <div class="menu-card__icon">🀄</div>
+          <div class="menu-card__title">天聽模式</div>
+          <div class="menu-card__desc">1112345678999萬 發發發<br>摸牌即可測試胡牌</div>
         </div>
 
       </div>
 
       <div style="text-align: center;">
-        <button onclick="showRules()" style="
-          padding: 10px 28px;
-          font-size: 0.95em;
-          background: transparent;
-          color: #888;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          cursor: pointer;
-        ">📋 查看規則</button>
+        <button onclick="showRules()" class="menu-rules-btn">📋 查看規則</button>
       </div>
     </div>
   `
