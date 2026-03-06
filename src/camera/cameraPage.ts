@@ -18,6 +18,8 @@ export function mountCameraPage(container: HTMLElement, callbacks: CameraPageCal
   let status: CameraStatus = { state: 'idle' }
   let videoEl: HTMLVideoElement | null = null
   let canvasEl: HTMLCanvasElement | null = null
+  let recognitionTaskId = 0
+  let lastCapturedImageDataUrl: string | null = null
 
   function render() {
     switch (status.state) {
@@ -43,8 +45,20 @@ export function mountCameraPage(container: HTMLElement, callbacks: CameraPageCal
           <div class="camera-page camera-page--center">
             <div class="camera-spinner"></div>
             <p>辨識中...</p>
+            <div class="camera-correction__actions" style="margin-top: 12px;">
+              <button type="button" class="camera-btn camera-btn--cancel" id="cam-recognizing-back">返回上一步</button>
+            </div>
           </div>
         `
+        document.getElementById('cam-recognizing-back')?.addEventListener('click', () => {
+          recognitionTaskId++
+          if (lastCapturedImageDataUrl) {
+            status = { state: 'captured', imageDataUrl: lastCapturedImageDataUrl }
+          } else {
+            status = { state: 'idle' }
+          }
+          render()
+        })
         break
       case 'result':
         renderResultPage()
@@ -142,6 +156,7 @@ export function mountCameraPage(container: HTMLElement, callbacks: CameraPageCal
 
     try {
       const dataUrl = await readFileAsDataURL(file)
+      lastCapturedImageDataUrl = dataUrl
       status = { state: 'captured', imageDataUrl: dataUrl }
       render()
     } catch {
@@ -154,6 +169,7 @@ export function mountCameraPage(container: HTMLElement, callbacks: CameraPageCal
     if (!videoEl || !canvasEl) return
     const dataUrl = captureFrame(videoEl, canvasEl)
     stopCamera()
+    lastCapturedImageDataUrl = dataUrl
     status = { state: 'captured', imageDataUrl: dataUrl }
     render()
   }
@@ -177,14 +193,17 @@ export function mountCameraPage(container: HTMLElement, callbacks: CameraPageCal
   }
 
   async function doRecognize(imageDataUrl: string) {
+    const taskId = ++recognitionTaskId
     status = { state: 'recognizing' }
     render()
 
     try {
       const result = await recognizeTiles(imageDataUrl)
+      if (taskId !== recognitionTaskId) return
       status = { state: 'result', result }
       render()
     } catch (err: any) {
+      if (taskId !== recognitionTaskId) return
       status = { state: 'error', message: err.message || '辨識失敗' }
       render()
     }
