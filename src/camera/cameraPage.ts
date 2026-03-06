@@ -129,7 +129,7 @@ export function mountCameraPage(container: HTMLElement, callbacks: CameraPageCal
           </div>
           <div class="camera-correction__actions" style="margin-top: 12px;">
             <button type="button" class="camera-btn camera-btn--confirm" id="cam-capture">拍照</button>
-            <button type="button" class="camera-btn camera-btn--cancel" id="cam-stop">取消</button>
+            <button type="button" class="camera-btn camera-btn--cancel" id="cam-stop">返回上一步</button>
           </div>
         </div>
       `
