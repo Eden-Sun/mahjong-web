@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { isValidTileId, VALID_TILE_IDS } from '../camera/types'
 import { recognizeTiles } from '../camera/recognitionService'
+import { classIndexToTileId, CONFIDENCE_THRESHOLD } from '../camera/postprocessing'
 
 describe('isValidTileId', () => {
   it('合法牌型全部通過', () => {
@@ -31,8 +32,9 @@ describe('VALID_TILE_IDS', () => {
   })
 })
 
-describe('recognizeTiles (mock)', () => {
+describe('recognizeTiles (fallback to mock)', () => {
   it('回傳結構正確', async () => {
+    // 沒有模型檔案，會 fallback 到 mock
     const result = await recognizeTiles('data:image/jpeg;base64,fake')
 
     expect(result.tiles.length).toBeGreaterThan(0)
@@ -45,5 +47,26 @@ describe('recognizeTiles (mock)', () => {
       expect(tile.confidence).toBeLessThanOrEqual(1)
       expect(tile.bbox).toHaveLength(4)
     }
+  })
+})
+
+describe('classIndexToTileId', () => {
+  it('有效索引回傳對應 TileId', () => {
+    expect(classIndexToTileId(0)).toBe('1m')
+    expect(classIndexToTileId(9)).toBe('1p')
+    expect(classIndexToTileId(33)).toBe('Z')
+  })
+
+  it('無效索引回傳 null', () => {
+    expect(classIndexToTileId(-1)).toBeNull()
+    expect(classIndexToTileId(34)).toBeNull()
+    expect(classIndexToTileId(100)).toBeNull()
+  })
+})
+
+describe('CONFIDENCE_THRESHOLD', () => {
+  it('閾值在合理範圍 (0, 1)', () => {
+    expect(CONFIDENCE_THRESHOLD).toBeGreaterThan(0)
+    expect(CONFIDENCE_THRESHOLD).toBeLessThan(1)
   })
 })
