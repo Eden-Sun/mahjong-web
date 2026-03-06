@@ -40,18 +40,26 @@ function generateMockResult(imageDataUrl: string, startTime: number): Recognitio
  * @param imageDataUrl - base64 圖片資料
  * @returns 辨識結果（TFJS 推論或 fallback mock）
  */
-export async function recognizeTiles(imageDataUrl: string): Promise<RecognitionResult> {
+export async function recognizeTiles(
+  imageDataUrl: string,
+  options?: { signal?: AbortSignal }
+): Promise<RecognitionResult> {
   const start = performance.now()
+  const signal = options?.signal
 
   try {
+    assertNotAborted(signal)
     const model = await getModel()
+    assertNotAborted(signal)
     const inputTensor = await preprocessImage(imageDataUrl)
+    assertNotAborted(signal)
 
     // 推論
     const outputTensor = model.predict(inputTensor) as import('@tensorflow/tfjs').Tensor | import('@tensorflow/tfjs').Tensor[]
 
     // 釋放輸入 tensor
     inputTensor.dispose()
+    assertNotAborted(signal)
 
     // 解析輸出 — 需依模型實際結構調整
     // 典型 detection model 回傳多個 tensor 或單一 tensor
@@ -76,6 +84,8 @@ export async function recognizeTiles(imageDataUrl: string): Promise<RecognitionR
       outputTensor.dispose()
     }
 
+    assertNotAborted(signal)
+
     // 後處理（暫用 640x480 作為預設圖片尺寸，實際應從圖片取得）
     const tiles = parseModelOutput(outputMap, numDetections, 640, 480)
 
@@ -89,10 +99,20 @@ export async function recognizeTiles(imageDataUrl: string): Promise<RecognitionR
       imageDataUrl,
       processingMs: performance.now() - start,
     }
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw err
+    }
+
     // ── FALLBACK ──────────────────────────────────────
     // 模型載入失敗或推論錯誤時，降級為 mock 結果
     console.warn('[recognitionService] TFJS unavailable, falling back to mock:', err)
     return generateMockResult(imageDataUrl, start)
+  }
+}
+
+function assertNotAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new DOMException('Recognition aborted', 'AbortError')
   }
 }

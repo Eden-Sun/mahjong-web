@@ -20,6 +20,7 @@ export function mountCameraPage(container: HTMLElement, callbacks: CameraPageCal
   let canvasEl: HTMLCanvasElement | null = null
   let recognitionTaskId = 0
   let lastCapturedImageDataUrl: string | null = null
+  let currentRecognitionAbort: AbortController | null = null
 
   function render() {
     switch (status.state) {
@@ -52,6 +53,8 @@ export function mountCameraPage(container: HTMLElement, callbacks: CameraPageCal
         `
         document.getElementById('cam-recognizing-back')?.addEventListener('click', () => {
           recognitionTaskId++
+          currentRecognitionAbort?.abort()
+          currentRecognitionAbort = null
           if (lastCapturedImageDataUrl) {
             status = { state: 'captured', imageDataUrl: lastCapturedImageDataUrl }
           } else {
@@ -194,18 +197,27 @@ export function mountCameraPage(container: HTMLElement, callbacks: CameraPageCal
 
   async function doRecognize(imageDataUrl: string) {
     const taskId = ++recognitionTaskId
+    const abortController = new AbortController()
+    currentRecognitionAbort = abortController
     status = { state: 'recognizing' }
     render()
 
+    // 先讓畫面有機會渲染，避免 UI 卡住導致「返回上一步」按不到
+    await new Promise(resolve => setTimeout(resolve, 0))
+
     try {
-      const result = await recognizeTiles(imageDataUrl)
-      if (taskId !== recognitionTaskId) return
+      const result = await recognizeTiles(imageDataUrl, { signal: abortController.signal })
+      if (taskId !== recognitionTaskId || abortController.signal.aborted) return
       status = { state: 'result', result }
       render()
     } catch (err: any) {
-      if (taskId !== recognitionTaskId) return
+      if (taskId !== recognitionTaskId || abortController.signal.aborted || err?.name === 'AbortError') return
       status = { state: 'error', message: err.message || '辨識失敗' }
       render()
+    } finally {
+      if (currentRecognitionAbort === abortController) {
+        currentRecognitionAbort = null
+      }
     }
   }
 
