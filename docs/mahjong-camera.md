@@ -26,7 +26,8 @@ src/camera/
   preprocessing.ts      # imageDataUrl → [1, 320, 320, 3] float32 tensor
   postprocessing.ts     # model output → RecognizedTile[]（含 NMS、類別映射）
   recognitionService.ts # 辨識服務：TFJS 推論 + fallback mock
-  correctionUI.ts       # 校正 UI 元件
+  correctionUI.ts       # 校正 UI 元件（含即時聽牌顯示）
+  tingAdvisor.ts        # 聽牌分析器（純函式）
   cameraPage.ts         # 頁面流程控制
 
 src/__tests__/camera.test.ts  # 單元測試
@@ -111,6 +112,42 @@ public/models/mahjong/
 
 Fallback 時會在 console 輸出 `[recognitionService] TFJS unavailable, falling back to mock` 警告。
 Mock 結果固定回傳 16 張牌（1m–9m, 1p, 2p, 3p, 9s, E, S, F），方便開發測試。
+
+## 即時聽牌分析
+
+**Phase 3 — 聽牌顧問（Ting Advisor）完成**
+
+辨識校正後即時顯示聽牌資訊，無需額外操作。
+
+### 功能
+
+| 手牌張數 | 顯示內容 |
+|----------|----------|
+| 16 張（% 3 === 1） | **已聽牌**：列出所有可胡的牌 |
+| 17 張（% 3 === 2） | **打出 → 可聽**：每張打出後的聽牌表，按聽牌數降序排列 |
+| 其他張數 | 不顯示（有碰/槓時 13/14 張同樣適用） |
+
+### 模組
+
+`src/camera/tingAdvisor.ts` — 純函式，零副作用：
+
+- `getCurrentWaits(hand: TileId[]): TileId[]`
+  - 窮舉 34 種牌，檢查加入後能否形成胡牌型
+  - 排除手牌已有 4 張的牌（不可能再摸到）
+- `getDiscardToWaits(hand: TileId[]): Partial<Record<TileId, TileId[]>>`
+  - 對手牌中每種牌嘗試打出，計算剩餘手牌的聽牌
+  - 僅回傳有聽牌的條目，相同牌不重複計算
+
+### 整合方式
+
+聽牌分析嵌入校正 UI（`correctionUI.ts`），使用者修改任何一張牌時即時重算。
+不影響原有辨識/校正/匯入流程。
+
+### 解讀說明
+
+- 聽牌分析假設手牌為門清（無碰/槓面子），因為相機僅辨識暗牌
+- 若有已碰/槓的面子，使用者可刪除對應牌張使手牌張數回到正確的 mod 3 === 1
+- 牌數限制：每種牌最多 4 張，超過的不列入聽牌候選
 
 ## 下一步
 

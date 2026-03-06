@@ -143,6 +143,82 @@
   to { transform: rotate(360deg); }
 }
 
+/* 聽牌分析 */
+.ting-advisor {
+  margin: 16px 0;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.ting-advisor__title {
+  margin: 0 0 8px;
+  font-size: 0.95em;
+  color: #333;
+}
+
+.ting-advisor__none {
+  margin: 0;
+  font-size: 0.85em;
+  color: #999;
+}
+
+.ting-advisor__waits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ting-advisor__tile {
+  display: inline-block;
+  padding: 4px 8px;
+  background: #667eea;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-weight: bold;
+}
+
+.ting-advisor__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+}
+
+.ting-advisor__table th {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 2px solid #ddd;
+  color: #666;
+  font-weight: normal;
+}
+
+.ting-advisor__table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.ting-advisor__discard {
+  font-weight: bold;
+  white-space: nowrap;
+  color: #e53935;
+}
+
+.ting-advisor__waits-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.ting-advisor__count {
+  font-size: 0.8em;
+  color: #999;
+  margin-left: 4px;
+}
+
 /* 手機適配 */
 @media (max-width: 480px) {
   .camera-tile-select {
@@ -158,5 +234,18 @@
   .camera-btn {
     padding: 10px 18px;
     font-size: 0.9em;
+  }
+
+  .ting-advisor {
+    padding: 10px;
+  }
+
+  .ting-advisor__tile {
+    padding: 3px 6px;
+    font-size: 0.8em;
+  }
+
+  .ting-advisor__table {
+    font-size: 0.8em;
   }
 }
