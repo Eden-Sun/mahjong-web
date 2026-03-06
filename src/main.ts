@@ -3,6 +3,7 @@ import './tile.css'
 import './styles/discard-timeline.css'
 import './styles/layout.css'
 import './styles/mobile-optimized.css'
+import './styles/camera.css'
 import './debug' // 🐛 Mobile Debug Tool (僅 dev 環境)
 import { initWasm, GameEngine, lastWasmError } from './wasm'
 import { GameState, PlayerAction, createInitialGameState, sortHand } from './gameState'
@@ -11,6 +12,8 @@ import { renderHandHTML, renderMeldsHTML } from './tileRenderer'
 import { renderDiscardTimeline, resetDiscardAnimations } from './components/DiscardTimeline'
 import { initChowSelector, showChowSelector } from './components/ChowSelector'
 import { getChowOptions } from './actionChecker'
+import { mountCameraPage } from './camera/cameraPage'
+import type { CorrectedTiles } from './camera/types'
 
 const app = document.getElementById('app')!
 
@@ -275,6 +278,14 @@ function showMenu() {
           <div class="menu-card__desc">1112345678999萬 發發發<br>摸牌即可測試胡牌</div>
         </div>
 
+
+        <!-- 辨識模式 -->
+        <div onclick="showCameraPage()" class="menu-card menu-card--normal" style="border-color: #42a5f5;">
+          <div class="menu-card__icon">📷</div>
+          <div class="menu-card__title">辨識模式</div>
+          <div class="menu-card__desc">用相機拍攝手牌<br>自動辨識牌型</div>
+        </div>
+
       </div>
 
       <div style="text-align: center;">
@@ -282,6 +293,30 @@ function showMenu() {
       </div>
     </div>
   `
+}
+
+function showCameraPage() {
+  mountCameraPage(app, {
+    onConfirm: (result: CorrectedTiles) => {
+      // 顯示辨識結果摘要，之後可接入遊戲
+      const tileNames = result.tiles.map(t => tileDisplay[t] ?? t).join(' ')
+      app.innerHTML = `
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; text-align: center;">
+          <h2 style="margin-bottom: 16px;">辨識完成</h2>
+          <p style="margin-bottom: 12px; font-size: 1.1em;">共 ${result.tiles.length} 張牌</p>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 24px;">
+            ${result.tiles.map(t => `<span style="padding: 6px 10px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px;">${tileDisplay[t] ?? t}</span>`).join('')}
+          </div>
+          <p style="color: #888; font-size: 0.85em; margin-bottom: 20px;">${tileNames}</p>
+          <div style="display: flex; gap: 10px; justify-content: center;">
+            <button onclick="showCameraPage()" class="camera-btn camera-btn--confirm">再拍一次</button>
+            <button onclick="showMenu()" class="camera-btn camera-btn--cancel">返回菜單</button>
+          </div>
+        </div>
+      `
+    },
+    onCancel: () => showMenu(),
+  })
 }
 
 function showRules() {
@@ -757,6 +792,7 @@ Object.assign(window, {
   startGame,
   startGameTenpai,
   showRules,
+  showCameraPage,
   selectTile,
   playerResponse,
   playerWin,
