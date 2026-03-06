@@ -12,9 +12,9 @@
 import * as tf from '@tensorflow/tfjs'
 
 // ── 模型輸入尺寸常數 ──────────────────────────────────
-// 依實際訓練模型調整，常見 YOLO/SSD 輸入為 320 或 416
-export const INPUT_WIDTH = 320
-export const INPUT_HEIGHT = 320
+// YOLOv8 預設訓練尺寸為 640；可透過 metadata.json 的 imgsz 覆寫
+export const INPUT_WIDTH = 640
+export const INPUT_HEIGHT = 640
 export const INPUT_CHANNELS = 3
 
 /**

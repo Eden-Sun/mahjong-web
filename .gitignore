@@ -47,3 +47,11 @@ yarn.lock
 # OS files
 .DS_Store
 Thumbs.db
+
+# Model weights (too large for git, use scripts/setup-model.py to generate)
+public/models/mahjong/*.bin
+public/models/mahjong/model.json
+public/models/mahjong/metadata.json
+public/models/mahjong/*.onnx
+datasets/
+runs/

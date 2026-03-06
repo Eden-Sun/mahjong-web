@@ -2,19 +2,21 @@
 
 ## 目前進度
 
-**Phase 2 — TFJS 推論管線骨架完成**（含 fallback）
+**Phase 3 — 真實模型推論管線完成**（含 YOLOv8 TFJS + fallback）
 
 | 項目 | 狀態 |
 |------|------|
 | Domain types（TileId、RecognitionResult、CorrectedTiles、CameraStatus） | Done |
 | 相機擷取模組（getUserMedia + 檔案上傳降級） | Done |
-| TFJS 推論管線（載入 → 前處理 → 推論 → 後處理） | Done |
+| TFJS 推論管線（YOLOv8 single-tensor + 舊版多 tensor） | Done |
+| YOLOv8 後處理（NMS、類別映射、confidence filter） | Done |
 | Fallback（模型不存在或推論失敗 → mock 結果） | Done |
+| Runtime logging（REAL_MODEL / FALLBACK_MOCK 標記） | Done |
 | 校正 UI（可編輯每張牌、刪除、確認/取消） | Done |
 | 完整頁面流程（idle → 拍照/上傳 → 預覽 → 辨識 → 校正 → 完成） | Done |
 | 主選單入口（📷 辨識牌組） | Done |
-| 單元測試（types + service fallback + postprocessing） | Done |
-| TypeScript 編譯通過 | Done |
+| 單元測試（types + postprocessing + REAL_MODEL + FALLBACK_MOCK） | Done |
+| 模型訓練/匯出腳本 | Done |
 
 ## 檔案結構
 
@@ -23,67 +25,101 @@ src/camera/
   types.ts              # Domain types：TileId, RecognitionResult, CorrectedTiles, CameraStatus
   cameraCapture.ts      # getUserMedia 封裝、拍照、檔案上傳
   modelLoader.ts        # TFJS GraphModel 懶載入 + 快取（singleton）
-  preprocessing.ts      # imageDataUrl → [1, 320, 320, 3] float32 tensor
-  postprocessing.ts     # model output → RecognizedTile[]（含 NMS、類別映射）
-  recognitionService.ts # 辨識服務：TFJS 推論 + fallback mock
+  preprocessing.ts      # imageDataUrl → [1, 640, 640, 3] float32 tensor
+  postprocessing.ts     # YOLOv8 output → RecognizedTile[]（含 NMS、類別映射）
+  recognitionService.ts # 辨識服務：REAL_MODEL 推論 + FALLBACK_MOCK
   correctionUI.ts       # 校正 UI 元件（含即時聽牌顯示）
   tingAdvisor.ts        # 聽牌分析器（純函式）
   cameraPage.ts         # 頁面流程控制
 
+scripts/
+  setup-model.py        # YOLOv8 模型訓練/匯出腳本
+
+public/models/mahjong/  # 模型檔案（不 commit 進 git）
+  model.json            # TFJS 模型拓撲
+  group1-shard*.bin     # 權重檔案
+  metadata.json         # 模型 metadata
+
 src/__tests__/camera.test.ts  # 單元測試
 ```
 
-## 如何啟動
+## 模型設定
+
+### 方式 A：訓練新模型（推薦）
+
+使用 [Roboflow mahjong_yolo 資料集](https://universe.roboflow.com/test-wmo8i/mahjong_yolo)（4483 張圖片，34 類，CC BY 4.0）：
 
 ```bash
+# 安裝 Python 依賴
+pip install ultralytics roboflow
+
+# 訓練 + 匯出（需免費 Roboflow API key）
+ROBOFLOW_API_KEY=your_key python scripts/setup-model.py --train
+
+# 訓練完成後自動匯出至 public/models/mahjong/
+```
+
+預期訓練時間：
+- CPU：2-4 小時
+- GPU（CUDA）：15-30 分鐘
+
+### 方式 B：匯出現有 .pt 模型
+
+如果你已有訓練好的 YOLOv8 .pt 模型：
+
+```bash
+python scripts/setup-model.py --export path/to/best.pt
+```
+
+### 方式 C：匯出為 ONNX（不需 TFJS 轉換環境）
+
+```bash
+python scripts/setup-model.py --export path/to/best.pt --format onnx
+```
+
+### 驗證模型是否正確安裝
+
+```bash
+# 確認模型檔案存在
+ls public/models/mahjong/model.json
+
+# 啟動開發伺服器
 bun run dev
-# 開啟瀏覽器 → 主選單 → 點擊「📷 辨識牌組」
+
+# 開啟瀏覽器 console，使用辨識功能後應看到：
+# [REAL_MODEL] inference 150ms — 16 tiles detected  （綠色）
+# 而非：
+# [FALLBACK_MOCK] inference 2ms                      （黃色）
 ```
 
-手機測試需 HTTPS（getUserMedia 限制），開發時可用：
-```bash
-# 使用 vite 的 --host 搭配手機同網段存取
-# 或用 ngrok / Cloudflare Tunnel 取得 HTTPS URL
-```
+## 模型輸入/輸出格式
 
-## 模型部署
-
-### 放置模型檔案
-
-將 TensorFlow.js GraphModel 檔案放至 `public/models/mahjong/`：
-
-```
-public/models/mahjong/
-  model.json          # 模型拓撲 + 權重清單
-  group1-shard1of1.bin  # 權重二進位檔（可能多個 shard）
-```
-
-路徑可透過 `src/camera/modelLoader.ts` 的 `MODEL_URL` 常數修改。
-
-### 預期輸入 tensor 格式
+### YOLOv8 TFJS 輸入
 
 | 屬性 | 值 |
 |------|-----|
-| shape | `[1, 320, 320, 3]` |
+| shape | `[1, 640, 640, 3]` |
 | dtype | `float32` |
-| 值域 | `[0, 1]`（原始像素 ÷ 255） |
+| 值域 | `[0, 1]`（原始像素 / 255） |
 | 色彩空間 | RGB |
 
-尺寸常數定義於 `src/camera/preprocessing.ts`（`INPUT_WIDTH`, `INPUT_HEIGHT`）。
-若模型訓練時使用不同尺寸，修改這兩個常數即可。
+### YOLOv8 TFJS 輸出
 
-### 預期輸出 tensor 格式
+單一 tensor，shape `[1, 38, 8400]`：
 
-模型應輸出多個 tensor（典型 object detection 格式）：
+| 維度 | 說明 |
+|------|------|
+| `[1, ...]` | batch（固定 1） |
+| `[..., 38, ...]` | 4 (bbox: x_center, y_center, w, h) + 34 (class scores) |
+| `[..., 8400]` | 偵測候選數（anchor points） |
 
-| 輸出 tensor | shape | 說明 |
-|-------------|-------|------|
-| `boxes` | `[1, N, 4]` | 歸一化座標 `[y1, x1, y2, x2]`，值域 `[0, 1]` |
-| `scores` | `[1, N]` | 每個偵測框的信心分數 |
-| `classes` | `[1, N]` | 類別索引（0–33，對應 `VALID_TILE_IDS` 順序） |
-| `num_detections` | `[1]` | 有效偵測數量 |
+後處理流程：
+1. 遍歷 8400 個候選
+2. 取最高 class score，若 < 0.5 則丟棄
+3. NMS（IoU threshold = 0.45）去除重疊偵測
+4. 依 x 座標排序（從左到右 = 牌序）
 
-類別索引對應：
+### 類別索引對應
 
 ```
  0: 1m   1: 2m   2: 3m  ...  8: 9m
@@ -93,13 +129,15 @@ public/models/mahjong/
 31: B   32: F   33: Z
 ```
 
-後處理邏輯在 `src/camera/postprocessing.ts`。
-若模型輸出格式不同，修改 `parseModelOutput()` 即可。
+**重要**：訓練時的類別順序必須與上述一致。若不同，需修改 `postprocessing.ts` 的 `VALID_TILE_IDS` 映射或在 `metadata.json` 的 `classNames` 中指定對應。
 
-### 信心閾值
+## 精度注意事項
 
-`CONFIDENCE_THRESHOLD = 0.5`（定義於 `postprocessing.ts`）。
-低於此閾值的偵測結果會被丟棄。
+- YOLOv8n（nano）模型約 6-13MB，適合瀏覽器推論，但精度會低於較大模型
+- 推論速度取決於裝置 GPU（WebGL backend）：桌機約 50-200ms，手機約 200-800ms
+- 若精度不夠，可改用 YOLOv8s（small, ~22MB）或 YOLOv8m（medium, ~50MB），修改 `setup-model.py` 的基礎模型即可
+- 光線不足、牌面反光、角度傾斜都會降低辨識精度
+- 建議拍攝時將牌面朝上平放，光線均勻
 
 ## Fallback 行為
 
@@ -110,12 +148,13 @@ public/models/mahjong/
 3. **推論拋出例外**
 4. **推論結果為空**（0 個有效偵測）
 
-Fallback 時會在 console 輸出 `[recognitionService] TFJS unavailable, falling back to mock` 警告。
-Mock 結果固定回傳 16 張牌（1m–9m, 1p, 2p, 3p, 9s, E, S, F），方便開發測試。
+瀏覽器 console 會清楚標記目前使用的模式：
+- `[REAL_MODEL]`（綠色）— 真實模型推論
+- `[FALLBACK_MOCK]`（黃色）— 降級為 mock 結果
+
+Mock 結果固定回傳 16 張牌（1m-9m, 1p, 2p, 3p, 9s, E, S, F），方便開發測試。
 
 ## 即時聽牌分析
-
-**Phase 3 — 聽牌顧問（Ting Advisor）完成**
 
 辨識校正後即時顯示聽牌資訊，無需額外操作。
 
@@ -132,34 +171,10 @@ Mock 結果固定回傳 16 張牌（1m–9m, 1p, 2p, 3p, 9s, E, S, F），方便
 `src/camera/tingAdvisor.ts` — 純函式，零副作用：
 
 - `getCurrentWaits(hand: TileId[]): TileId[]`
-  - 窮舉 34 種牌，檢查加入後能否形成胡牌型
-  - 排除手牌已有 4 張的牌（不可能再摸到）
 - `getDiscardToWaits(hand: TileId[]): Partial<Record<TileId, TileId[]>>`
-  - 對手牌中每種牌嘗試打出，計算剩餘手牌的聽牌
-  - 僅回傳有聽牌的條目，相同牌不重複計算
-
-### 整合方式
-
-聽牌分析嵌入校正 UI（`correctionUI.ts`），使用者修改任何一張牌時即時重算。
-不影響原有辨識/校正/匯入流程。
 
 ### 解讀說明
 
 - 聽牌分析假設手牌為門清（無碰/槓面子），因為相機僅辨識暗牌
 - 若有已碰/槓的面子，使用者可刪除對應牌張使手牌張數回到正確的 mod 3 === 1
 - 牌數限制：每種牌最多 4 張，超過的不列入聽牌候選
-
-## 下一步
-
-1. **訓練模型**：
-   - 收集標註資料（5000+ 張照片）
-   - YOLOv8n / MobileNet-SSD，目標 < 10MB
-   - 匯出至 TF.js GraphModel 格式
-
-2. **校正資料回饋**：
-   - 使用者修正後的 `CorrectedTiles.originalResult` 可作為再訓練資料
-   - 需設計回傳 API 與匿名化處理
-
-3. **與遊戲整合**：
-   - 辨識結果 → 設定為玩家手牌
-   - 需處理牌數驗證（台灣麻將 16 張）
